@@ -22,6 +22,14 @@ $white_ffffff: #ffffff;
   margin: 0 auto;
   padding: 18px;
   width: min(1440px, 100%);
+
+  @media (max-width: 980px) {
+    padding: 12px;
+  }
+
+  @media (max-width: 620px) {
+    padding: 10px;
+  }
 }
 
 .topbar {
@@ -30,6 +38,12 @@ $white_ffffff: #ffffff;
   justify-content: space-between;
   gap: 18px;
   padding: 14px 0 18px;
+
+  @media (max-width: 980px) {
+    align-items: stretch;
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 
   h1 {
     font-size: clamp(2rem, 5vw, 4.4rem);
@@ -83,6 +97,14 @@ $white_ffffff: #ffffff;
   grid-template-columns: repeat(3, minmax(96px, 1fr));
   gap: 8px;
   width: min(440px, 100%);
+
+  @media (max-width: 980px) {
+    width: 100%;
+  }
+
+  @media (max-width: 620px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .stat-tile {
@@ -95,6 +117,11 @@ $white_ffffff: #ffffff;
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow-soft);
+
+  @media (max-width: 620px) {
+    min-height: 68px;
+    padding: 8px;
+  }
 
   svg {
     color: var(--teal);
@@ -110,6 +137,10 @@ $white_ffffff: #ffffff;
     color: var(--ink);
     font-size: 1.55rem;
     line-height: 1;
+
+    @media (max-width: 620px) {
+      font-size: 1.25rem;
+    }
   }
 }
 
@@ -246,6 +277,11 @@ $white_ffffff: #ffffff;
   padding: 6px;
   scrollbar-width: thin;
 
+  @media (max-width: 620px) {
+    gap: 6px;
+    padding: 5px;
+  }
+
   button {
     min-height: 38px;
     flex: 1 0 0;
@@ -259,6 +295,12 @@ $white_ffffff: #ffffff;
     background: $white_ffffff;
     color: var(--ink);
     text-align: center;
+
+    @media (max-width: 620px) {
+      flex: 0 0 auto;
+      min-height: 36px;
+      padding: 6px 9px;
+    }
 
     &.is-active {
       border-color: var(--teal);
@@ -292,6 +334,10 @@ $white_ffffff: #ffffff;
   place-items: center;
   flex: 0 0 auto;
   color: var(--teal);
+
+  @media (max-width: 620px) {
+    display: none;
+  }
 
   svg {
     height: 15px;
@@ -335,6 +381,10 @@ $white_ffffff: #ffffff;
   justify-content: space-between;
   gap: 10px;
   padding: 10px 12px;
+
+  @media (max-width: 620px) {
+    padding: 9px 10px;
+  }
 }
 
 .flow-step-marker {
@@ -348,6 +398,10 @@ $white_ffffff: #ffffff;
   color: var(--kid-color);
   font-weight: 900;
   white-space: nowrap;
+
+  @media (max-width: 620px) {
+    justify-self: start;
+  }
 
   span {
     color: var(--ink);
@@ -365,6 +419,11 @@ $white_ffffff: #ffffff;
     font-size: clamp(1.2rem, 2.3vw, 1.65rem);
     line-height: 1.05;
     margin: 0;
+
+    @media (max-width: 620px) {
+      font-size: clamp(1.42rem, 6vw, 1.65rem);
+      line-height: 1.05;
+    }
   }
 
   p {
@@ -372,6 +431,10 @@ $white_ffffff: #ffffff;
     font-size: 0.9rem;
     font-weight: 800;
     margin: 4px 0 0;
+
+    @media (max-width: 620px) {
+      font-size: 0.82rem;
+    }
   }
 }
 
@@ -389,6 +452,10 @@ $white_ffffff: #ffffff;
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .work-column {
@@ -407,6 +474,10 @@ $white_ffffff: #ffffff;
   border-radius: 8px;
   box-shadow: var(--shadow-soft);
   padding: 16px;
+
+  @media (max-width: 620px) {
+    padding: 12px;
+  }
 }
 
 .panel-heading {
@@ -415,6 +486,11 @@ $white_ffffff: #ffffff;
   justify-content: space-between;
   gap: 12px;
   margin-bottom: 14px;
+
+  @media (max-width: 620px) {
+    align-items: stretch;
+    display: grid;
+  }
 
   h2 {
     color: var(--ink);
@@ -501,6 +577,13 @@ $white_ffffff: #ffffff;
   border: 1px solid var(--line);
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface) 82%, var(--paper));
+
+  @media (max-width: 620px) {
+    gap: 7px;
+    grid-template-columns: 1fr;
+    margin-bottom: 10px;
+    padding: 7px;
+  }
 }
 
 .kid-selector-head {
@@ -509,6 +592,11 @@ $white_ffffff: #ffffff;
   align-items: center;
   gap: 7px;
   padding-left: 2px;
+
+  @media (max-width: 620px) {
+    justify-content: space-between;
+    padding: 0 2px;
+  }
 
   h2 {
     color: var(--muted);
@@ -575,6 +663,10 @@ $white_ffffff: #ffffff;
   background: $white_ffffff;
   color: var(--ink);
   text-align: left;
+
+  @media (max-width: 620px) {
+    max-width: 150px;
+  }
 
   &.is-active {
     border-color: var(--kid-color);
@@ -699,6 +791,10 @@ $white_ffffff: #ffffff;
   padding: 8px 10px;
   background: $cornsilk_fff8df;
 
+  @media (max-width: 620px) {
+    align-items: stretch;
+  }
+
   > div {
     display: grid;
     gap: 2px;
@@ -785,6 +881,11 @@ $white_ffffff: #ffffff;
   grid-column: 1/-1;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  @media (max-width: 620px) {
+    gap: 7px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 .kid-card-stat {
@@ -797,6 +898,11 @@ $white_ffffff: #ffffff;
   border-radius: 7px;
   background: var(--paper);
   white-space: nowrap;
+
+  @media (max-width: 620px) {
+    min-height: 36px;
+    padding: 6px 8px;
+  }
 
   &.pending {
     background: var(--mint-soft);
@@ -836,6 +942,11 @@ $white_ffffff: #ffffff;
   display: flex;
   gap: 8px;
 
+  @media (max-width: 620px) {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
   input {
     background: $white_ffffff;
     border: 1px solid var(--line-strong);
@@ -864,6 +975,11 @@ $white_ffffff: #ffffff;
   gap: 8px;
   grid-template-columns: auto minmax(92px, 1fr) auto;
   align-items: end;
+
+  @media (max-width: 620px) {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 
   input {
     background: $white_ffffff;
@@ -915,6 +1031,19 @@ $white_ffffff: #ffffff;
   }
   grid-template-columns: minmax(0, 1fr) 110px 120px auto;
   align-items: end;
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr 96px;
+
+    input[aria-label="Max per day"] {
+      grid-column: 1/2;
+    }
+  }
+
+  @media (max-width: 620px) {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 
   .edit-field {
     align-self: stretch;
@@ -984,6 +1113,10 @@ $white_ffffff: #ffffff;
   gap: 8px;
   align-items: center;
   width: 100%;
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 button {
@@ -1063,6 +1196,10 @@ select {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+
+  @media (max-width: 620px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .reward-grid {
@@ -1149,6 +1286,10 @@ select {
   gap: 10px;
   align-items: end;
 
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
+
   input {
     background: $white_ffffff;
     border: 1px solid var(--line-strong);
@@ -1193,6 +1334,10 @@ select {
   display: grid;
   gap: 8px;
   grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+
+  @media (max-width: 620px) {
+    grid-template-columns: 1fr;
+  }
 }
 
 .pending-panel {
@@ -1205,6 +1350,11 @@ select {
     min-height: 38px;
     padding: 0 14px;
     white-space: nowrap;
+
+    @media (max-width: 620px) {
+      justify-self: start;
+      width: auto;
+    }
   }
 
   .icon-actions {
@@ -1230,6 +1380,11 @@ select {
   min-height: 48px;
   padding: 7px 9px;
   border-top: 1px solid var(--line);
+
+  @media (max-width: 620px) {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
 
   span {
     color: var(--muted);
@@ -1281,6 +1436,12 @@ select {
   gap: 12px;
   grid-template-columns: auto minmax(0, 1fr);
   margin-bottom: 10px;
+
+  @media (max-width: 620px) {
+    gap: 6px;
+    grid-template-columns: 1fr;
+    margin-bottom: 8px;
+  }
 }
 
 .bank-number {
@@ -1294,6 +1455,10 @@ select {
   display: grid;
   gap: 5px;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+
+  @media (max-width: 620px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 
   span {
     font-size: 0.74rem;
@@ -1363,6 +1528,31 @@ select {
 
 .manage-panel {
   margin-top: 14px;
+
+  @media (max-width: 620px) {
+    .panel-heading {
+      align-items: center;
+      display: flex;
+    }
+  }
+}
+
+.history-panel {
+  @media (max-width: 620px) {
+    .panel-heading {
+      align-items: center;
+      display: flex;
+    }
+  }
+}
+
+.rewards-panel {
+  @media (max-width: 620px) {
+    .panel-heading {
+      align-items: center;
+      display: flex;
+    }
+  }
 }
 
 .history-icon {
@@ -1420,6 +1610,10 @@ select {
   border-radius: 8px;
   background: color-mix(in srgb, var(--line) 0%, var(--paper));
 
+  @media (max-width: 620px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   button {
     min-height: 34px;
     padding: 5px 8px;
@@ -1446,6 +1640,10 @@ select {
 
 .kid-add-form {
   grid-template-columns: minmax(220px, 1fr) 150px minmax(150px, 204px) auto;
+
+  @media (max-width: 980px) {
+    grid-template-columns: minmax(0, 1fr) 110px minmax(120px, 160px) auto;
+  }
 
   button {
     min-width: 86px;
@@ -1474,6 +1672,10 @@ select {
   align-items: center;
   min-width: 0;
   width: 100%;
+
+  @media (max-width: 980px) {
+    grid-template-columns: 1fr;
+  }
 
   input {
     width: 100%;
@@ -1733,216 +1935,6 @@ select {
       scroll-behavior: auto !important;
       transition-duration: 1ms !important;
     }
-  }
-}
-
-@media (max-width: 980px) {
-  .app-shell {
-    padding: 12px;
-  }
-
-  .topbar {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .dashboard {
-    grid-template-columns: 1fr;
-  }
-
-  .top-stats {
-    width: 100%;
-  }
-
-  .manager-form {
-    grid-template-columns: 1fr 96px;
-
-    input[aria-label="Max per day"] {
-      grid-column: 1/2;
-    }
-  }
-
-  .kid-add-form {
-    grid-template-columns: minmax(0, 1fr) 110px minmax(120px, 160px) auto;
-  }
-
-  .pending-edit-row {
-    grid-template-columns: 1fr;
-  }
-
-  .manager-edit-fields {
-    grid-template-columns: 1fr;
-  }
-
-  .custom-task-fields {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 620px) {
-  .app-shell {
-    padding: 10px;
-  }
-
-  .flow-nav {
-    gap: 6px;
-    padding: 5px;
-
-    button {
-      flex: 0 0 auto;
-      min-height: 36px;
-      padding: 6px 9px;
-    }
-  }
-
-  .flow-nav-icon {
-    display: none;
-  }
-
-  .flow-step-bar {
-    padding: 9px 10px;
-  }
-
-  .flow-step-marker {
-    justify-self: start;
-  }
-
-  .flow-step-title {
-    h2 {
-      font-size: clamp(1.42rem, 6vw, 1.65rem);
-      line-height: 1.05;
-    }
-
-    p {
-      font-size: 0.82rem;
-    }
-  }
-
-  .top-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .stat-tile {
-    min-height: 68px;
-    padding: 8px;
-
-    strong {
-      font-size: 1.25rem;
-    }
-  }
-
-  .panel {
-    padding: 12px;
-  }
-
-  .kid-selector {
-    gap: 7px;
-    grid-template-columns: 1fr;
-    margin-bottom: 10px;
-    padding: 7px;
-  }
-
-  .kid-selector-head {
-    justify-content: space-between;
-    padding: 0 2px;
-  }
-
-  .kid-card {
-    max-width: 150px;
-  }
-
-  .kid-card-stats {
-    gap: 7px;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .kid-card-stat {
-    min-height: 36px;
-    padding: 6px 8px;
-  }
-
-  .panel-heading {
-    align-items: stretch;
-    display: grid;
-  }
-
-  .pending-group-head {
-    align-items: stretch;
-  }
-
-  .history-panel {
-    .panel-heading {
-      align-items: center;
-      display: flex;
-    }
-  }
-
-  .rewards-panel {
-    .panel-heading {
-      align-items: center;
-      display: flex;
-    }
-  }
-
-  .manage-panel {
-    .panel-heading {
-      align-items: center;
-      display: flex;
-    }
-  }
-
-  .task-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .manager-list {
-    grid-template-columns: 1fr;
-  }
-
-  .pending-entry {
-    align-items: center;
-    grid-template-columns: minmax(0, 1fr) auto auto;
-  }
-
-  .pending-panel {
-    .panel-heading {
-      align-items: start;
-    }
-
-    .primary-action {
-      justify-self: start;
-      width: auto;
-    }
-  }
-
-  .bank-summary {
-    gap: 6px;
-    grid-template-columns: 1fr;
-    margin-bottom: 8px;
-  }
-
-  .bank-stats {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .manager-form {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .inline-form {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .bank-adjust {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .segmented {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
