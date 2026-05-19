@@ -44,6 +44,13 @@ import type {
 
 type Notify = (message: string) => void;
 type TriggerBurst = (kind: BurstKind, amount: number, label?: string) => void;
+type FlowStepId =
+  | "record"
+  | "pending"
+  | "bank"
+  | "redeem"
+  | "history"
+  | "manage";
 
 const tokenLabel = (tokens: number) =>
   `${tokens} token${tokens === 1 ? "" : "s"}`;
@@ -94,11 +101,56 @@ const initialsFor = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join("") || "?";
 
+const flowSteps: Array<{
+  id: FlowStepId;
+  label: string;
+  eyebrow: string;
+  icon: ReactNode;
+}> = [
+  {
+    id: "record",
+    label: "Record task",
+    eyebrow: "Step 1",
+    icon: <CheckCircle2 size={18} />,
+  },
+  {
+    id: "pending",
+    label: "Pay pending",
+    eyebrow: "Step 2",
+    icon: <Banknote size={18} />,
+  },
+  {
+    id: "bank",
+    label: "Bank balance",
+    eyebrow: "Step 3",
+    icon: <Wallet size={18} />,
+  },
+  {
+    id: "redeem",
+    label: "Redeem reward",
+    eyebrow: "Step 4",
+    icon: <Gift size={18} />,
+  },
+  {
+    id: "history",
+    label: "Task history",
+    eyebrow: "Step 5",
+    icon: <History size={18} />,
+  },
+  {
+    id: "manage",
+    label: "Manage",
+    eyebrow: "Step 6",
+    icon: <Settings size={18} />,
+  },
+];
+
 function App() {
   const subscribe = useTokenStore((state) => state.subscribe);
   const seedStarterData = useTokenStore((state) => state.seedStarterData);
   const setSelectedKid = useTokenStore((state) => state.setSelectedKid);
   const store = useTokenStore();
+  const [activeStep, setActiveStep] = useState<FlowStepId>("record");
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [notice, setNotice] = useState("");
   const seeded = useRef(false);
@@ -150,9 +202,25 @@ function App() {
         (redemption) => redemption.kidId === selectedKid.id,
       ).length
     : store.redemptions.length;
-  const statScope = selectedKid
-    ? `${selectedKid.name}'s totals`
-    : "Household totals";
+  const selectedHistoryCount = selectedKid
+    ? store.earnings.filter((earning) => earning.kidId === selectedKid.id)
+        .length + selectedRewardCount
+    : store.earnings.length + store.redemptions.length;
+  // const statScope = selectedKid
+  //   ? `${selectedKid.name}'s totals`
+  //   : "Household totals";
+  const activeTaskCount = store.tasks.filter((task) => task.active).length;
+  const activeRewardCount = store.rewards.filter(
+    (reward) => reward.active,
+  ).length;
+  const stepStats: Record<FlowStepId, string> = {
+    record: `${activeTaskCount} tasks`,
+    pending: `${selectedKid?.pendingTokens ?? totalPending} pending`,
+    bank: `${selectedKid?.bankedTokens ?? totalBanked} banked`,
+    redeem: `${activeRewardCount} rewards`,
+    history: `${selectedHistoryCount} entries`,
+    manage: `${store.kids.length} kids`,
+  };
 
   const triggerBurst: TriggerBurst = (kind, amount, label) => {
     const id = Date.now() + Math.random();
@@ -180,7 +248,7 @@ function App() {
           <p className="eyebrow">Summer Token Economy</p>
           <h1>Summer Token HQ</h1>
         </div>
-        <div className="top-stats" aria-label={statScope}>
+        {/* <div className="top-stats" aria-label={statScope}>
           <StatTile
             icon={<Coins size={18} />}
             label="Pending"
@@ -196,74 +264,88 @@ function App() {
             label="Rewards"
             value={selectedRewardCount}
           />
-        </div>
+        </div> */}
       </header>
 
       {store.error ? <div className="app-alert">{store.error}</div> : null}
 
-      <main className="dashboard">
-        <section className="work-column">
-          {activeKids.length > 0 ? (
-            <KidSelector
-              kids={activeKids}
-              selectedKidId={selectedKid?.id}
-              onSelect={setSelectedKid}
+      <main className="workflow">
+        {store.loading ? (
+          <LoadingPanel />
+        ) : selectedKid ? (
+          <>
+            <WorkflowNav
+              activeStep={activeStep}
+              onSelect={setActiveStep}
+              stepStats={stepStats}
             />
-          ) : null}
-          {store.loading ? (
-            <LoadingPanel />
-          ) : selectedKid ? (
-            <>
-              <QuickEarn
+            <section className="flow-stage" aria-label="Token economy step">
+              <FlowStepBar
                 kid={selectedKid}
-                tasks={store.tasks}
-                earnings={store.earnings}
-                onBurst={triggerBurst}
-                onNotice={setNotice}
+                step={activeStep}
+                stepStats={stepStats}
               />
-              <PendingQueue
-                kid={selectedKid}
-                kids={activeKids}
-                tasks={store.tasks}
-                earnings={store.earnings}
-                onBurst={triggerBurst}
-                onNotice={setNotice}
-              />
-              <HistoryPanel
-                kid={selectedKid}
-                earnings={store.earnings}
-                redemptions={store.redemptions}
-                onNotice={setNotice}
-              />
-            </>
-          ) : (
-            <FirstKidPanel onNotice={setNotice} />
-          )}
-        </section>
-
-        <aside className="side-column">
-          {selectedKid ? (
-            <>
-              <KidBank kid={selectedKid} onNotice={setNotice} />
-              <RewardsPanel
-                kid={selectedKid}
-                rewards={store.rewards}
-                onBurst={triggerBurst}
-                onNotice={setNotice}
-              />
-            </>
-          ) : (
-            <SummerSummary pending={totalPending} banked={totalBanked} />
-          )}
-        </aside>
+              {activeStep !== "manage" && (
+                <KidSelector
+                  kids={activeKids}
+                  selectedKidId={selectedKid.id}
+                  onSelect={setSelectedKid}
+                />
+              )}
+              <div className="step-content">
+                {activeStep === "record" ? (
+                  <QuickEarn
+                    kid={selectedKid}
+                    tasks={store.tasks}
+                    earnings={store.earnings}
+                    onBurst={triggerBurst}
+                    onNotice={setNotice}
+                  />
+                ) : null}
+                {activeStep === "pending" ? (
+                  <PendingQueue
+                    kid={selectedKid}
+                    kids={activeKids}
+                    tasks={store.tasks}
+                    earnings={store.earnings}
+                    onBurst={triggerBurst}
+                    onNotice={setNotice}
+                  />
+                ) : null}
+                {activeStep === "bank" ? (
+                  <KidBank kid={selectedKid} onNotice={setNotice} />
+                ) : null}
+                {activeStep === "redeem" ? (
+                  <RewardsPanel
+                    kid={selectedKid}
+                    rewards={store.rewards}
+                    onBurst={triggerBurst}
+                    onNotice={setNotice}
+                  />
+                ) : null}
+                {activeStep === "history" ? (
+                  <HistoryPanel
+                    kid={selectedKid}
+                    earnings={store.earnings}
+                    redemptions={store.redemptions}
+                    onNotice={setNotice}
+                  />
+                ) : null}
+                {activeStep === "manage" ? (
+                  <ManagePanel
+                    kids={store.kids}
+                    tasks={store.tasks}
+                    rewards={store.rewards}
+                    onNotice={setNotice}
+                  />
+                ) : null}
+              </div>
+            </section>
+          </>
+        ) : (
+          <FirstKidPanel onNotice={setNotice} />
+        )}
       </main>
-
-      <ManagePanel
-        kids={store.kids}
-        tasks={store.tasks}
-        rewards={store.rewards}
-        onNotice={setNotice}
-      />
 
       {notice ? <div className="toast">{notice}</div> : null}
     </div>
@@ -289,23 +371,23 @@ function ConfigNeeded() {
   );
 }
 
-function StatTile({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: number;
-}) {
-  return (
-    <div className="stat-tile">
-      {icon}
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
-  );
-}
+// function StatTile({
+//   icon,
+//   label,
+//   value,
+// }: {
+//   icon: ReactNode;
+//   label: string;
+//   value: number;
+// }) {
+//   return (
+//     <div className="stat-tile">
+//       {icon}
+//       <span>{label}</span>
+//       <strong>{value}</strong>
+//     </div>
+//   );
+// }
 
 function LoadingPanel() {
   return (
@@ -313,6 +395,72 @@ function LoadingPanel() {
       <RefreshCw className="spin" size={22} />
       <span>Loading the token bank</span>
     </section>
+  );
+}
+
+function getFlowStep(stepId: FlowStepId) {
+  return flowSteps.find((step) => step.id === stepId) ?? flowSteps[0];
+}
+
+function WorkflowNav({
+  activeStep,
+  // stepStats,
+  onSelect,
+}: {
+  activeStep: FlowStepId;
+  stepStats: Record<FlowStepId, string>;
+  onSelect: (step: FlowStepId) => void;
+}) {
+  return (
+    <nav className="flow-nav" aria-label="Token economy flow">
+      {flowSteps.map((step) => (
+        <button
+          aria-current={activeStep === step.id ? "step" : undefined}
+          className={activeStep === step.id ? "is-active" : ""}
+          key={step.id}
+          onClick={() => onSelect(step.id)}
+          type="button"
+        >
+          {/* <span className="flow-nav-number">{index + 1}</span> */}
+          <span className="flow-nav-copy">
+            <strong>{step.label}</strong>
+            {/* <small>{stepStats[step.id]}</small> */}
+          </span>
+          <span className="flow-nav-icon">{step.icon}</span>
+        </button>
+      ))}
+    </nav>
+  );
+}
+
+function FlowStepBar({
+  kid,
+  step,
+  stepStats,
+}: {
+  kid: Kid;
+  step: FlowStepId;
+  stepStats: Record<FlowStepId, string>;
+}) {
+  const activeStep = getFlowStep(step);
+
+  return (
+    <div
+      className="flow-step-bar"
+      style={{ "--kid-color": kid.color } as CSSProperties}
+    >
+      {/* <div className="flow-step-marker">
+        <span>{activeStep.eyebrow}</span>
+        {activeStep.icon}
+      </div> */}
+      <div className="flow-step-title">
+        <h2>{activeStep.label}</h2>
+        <p>
+          {kid.name} · {stepStats[activeStep.id]} · {kid.pendingTokens} pending
+          · {kid.bankedTokens} banked
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -901,6 +1049,7 @@ function BankAdjustForm({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
 
   return (
     <form className="bank-adjust" onSubmit={saveBank}>
+      <label className="bold-label">Edit bank total</label>
       <input
         aria-label="Physical bank total"
         min="0"
@@ -1744,24 +1893,6 @@ function KidManager({ kids, onNotice }: { kids: Kid[]; onNotice: Notify }) {
         ))}
       </div>
     </div>
-  );
-}
-
-function SummerSummary({
-  pending,
-  banked,
-}: {
-  pending: number;
-  banked: number;
-}) {
-  return (
-    <section className="panel summer-summary">
-      <Sparkles size={24} />
-      <h2>Ready for summer</h2>
-      <p>
-        {pending} pending tokens and {banked} banked tokens across the house.
-      </p>
-    </section>
   );
 }
 
