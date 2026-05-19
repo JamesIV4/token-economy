@@ -36,7 +36,6 @@ jobs:
       - run: npm run build
       - uses: actions/upload-pages-artifact@v4
         with:
-          node-version: 24
           path: dist
   deploy:
     environment:
