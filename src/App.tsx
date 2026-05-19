@@ -1037,11 +1037,13 @@ function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
         </div>
         <Wallet size={22} />
       </div>
-      <div className="bank-number">{kid.bankedTokens}</div>
-      <div className="bank-stats">
-        <span>{kid.pendingTokens} pending</span>
-        <span>{kid.lifetimeEarned} cashed in</span>
-        <span>{kid.lifetimeRedeemed} redeemed</span>
+      <div className="bank-summary">
+        <div className="bank-number">{kid.bankedTokens}</div>
+        <div className="bank-stats">
+          <span>{kid.pendingTokens} pending</span>
+          <span>{kid.lifetimeEarned} cashed in</span>
+          <span>{kid.lifetimeRedeemed} redeemed</span>
+        </div>
       </div>
       <BankAdjustForm
         key={`${kid.id}-${kid.bankedTokens}`}

@@ -515,6 +515,12 @@
   gap: 8px;
 }
 
+.bank-adjust {
+  display: grid;
+  grid-template-columns: auto minmax(92px, 1fr) auto;
+  align-items: end;
+}
+
 .inline-form input,
 .bank-adjust input,
 .manager-form input,
@@ -533,6 +539,11 @@
   font: inherit;
   font-size: 16px;
   letter-spacing: 0;
+}
+
+.bank-adjust input {
+  min-height: 38px;
+  padding: 7px 10px;
 }
 
 .inline-form input,
@@ -591,6 +602,10 @@ button:disabled {
   justify-content: center;
   gap: 7px;
   padding: 0 12px;
+}
+
+.bank-adjust button {
+  min-height: 38px;
 }
 
 .primary-action {
@@ -873,7 +888,7 @@ button:disabled {
   content: "";
   position: absolute;
   inset: 0 0 auto;
-  height: 6px;
+  height: 5px;
   background: var(--kid-color);
 }
 
@@ -881,36 +896,42 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 
 .bank-top svg {
   color: var(--kid-color);
 }
 
+.bank-summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
 .bank-number {
   color: var(--ink);
-  font-size: clamp(3.4rem, 8vw, 5.8rem);
+  font-size: clamp(2.85rem, 7vw, 4.4rem);
   font-weight: 950;
   line-height: 0.95;
 }
 
 .bank-stats {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-  margin: 12px 0;
+  gap: 5px;
 }
 
 .bank-stats span {
-  min-height: 44px;
+  min-height: 28px;
   display: grid;
   place-items: center;
-  padding: 6px;
+  padding: 4px 8px;
   border-radius: 7px;
-  background: var(--paper);
-  color: var(--muted);
-  font-size: 0.78rem;
+  background: color-mix(in srgb, var(--line) 72%, var(--paper));
+  color: color-mix(in srgb, var(--ink) 62%, var(--muted));
+  font-size: 0.74rem;
   font-weight: 800;
   text-align: center;
 }
@@ -1012,21 +1033,26 @@ button:disabled {
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
   padding: 5px;
-  border: 1px solid var(--line);
+  border: 1px solid color-mix(in srgb, var(--line) 76%, transparent);
   border-radius: 8px;
-  background: var(--paper);
+  background: color-mix(in srgb, var(--line) 62%, var(--paper));
 }
 
 .segmented button {
-  min-height: 38px;
-  background: transparent;
-  color: var(--muted);
+  min-height: 34px;
+  padding: 5px 8px;
+  border-color: transparent;
+  background: color-mix(in srgb, var(--paper) 78%, var(--line));
+  color: color-mix(in srgb, var(--ink) 54%, var(--muted));
+  font-weight: 750;
 }
 
 .segmented button.is-active {
   background: #ffffff;
   color: var(--ink);
-  box-shadow: var(--shadow-soft);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.85) inset,
+    0 8px 18px rgba(23, 32, 42, 0.14);
 }
 
 .manager {
@@ -1484,6 +1510,7 @@ button:disabled {
   }
 
   .history-panel .panel-heading,
+  .rewards-panel .panel-heading,
   .manage-panel .panel-heading {
     display: flex;
     align-items: center;
@@ -1508,8 +1535,14 @@ button:disabled {
     width: auto;
   }
 
-  .bank-stats {
+  .bank-summary {
     grid-template-columns: 1fr;
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  .bank-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .manager-form,
@@ -1520,7 +1553,7 @@ button:disabled {
   }
 
   .segmented {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
