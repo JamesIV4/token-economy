@@ -742,7 +742,10 @@ function PendingQueue({
     .map((task) => {
       const items = pending.filter((earning) => earning.taskId === task.id);
       return {
-        task,
+        key: task.id,
+        taskId: task.id,
+        taskTitle: undefined,
+        title: task.title,
         items,
         total: items.reduce((sum, item) => sum + item.tokens, 0),
       };
@@ -751,11 +754,40 @@ function PendingQueue({
   const loose = pending.filter(
     (earning) => !tasks.some((task) => task.id === earning.taskId),
   );
+  const looseGroups = loose.reduce<
+    Array<{
+      key: string;
+      taskId: string;
+      taskTitle?: string;
+      title: string;
+      items: TokenEarning[];
+      total: number;
+    }>
+  >((groups, earning) => {
+    const title = earning.taskTitle || "Archived task";
+    const key = `${earning.taskId}:${title}`;
+    const group = groups.find((item) => item.key === key);
+    if (group) {
+      group.items.push(earning);
+      group.total += earning.tokens;
+      return groups;
+    }
+
+    groups.push({
+      key,
+      taskId: earning.taskId,
+      taskTitle: earning.taskId === "custom" ? title : undefined,
+      title,
+      items: [earning],
+      total: earning.tokens,
+    });
+    return groups;
+  }, []);
   const total = pending.reduce((sum, item) => sum + item.tokens, 0);
 
-  const cash = async (taskId?: string) => {
+  const cash = async (taskId?: string, taskTitle?: string) => {
     try {
-      const cashed = await cashPending({ kidId: kid.id, taskId });
+      const cashed = await cashPending({ kidId: kid.id, taskId, taskTitle });
       if (cashed > 0) {
         onBurst("cash", cashed, `+${cashed}`);
         onNotice(`${kid.name}'s physical bank got ${tokenLabel(cashed)}.`);
@@ -806,7 +838,9 @@ function PendingQueue({
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Pending tokens</p>
-          <h2>Cash-out queue</h2>
+          <h2>
+            {kid.name} is owed {tokenLabel(total)}
+          </h2>
         </div>
         <button
           className="primary-action"
@@ -815,7 +849,7 @@ function PendingQueue({
           type="button"
         >
           <Banknote size={18} />
-          Cash all {total}
+          Pay out all {total}
         </button>
       </div>
 
@@ -828,25 +862,20 @@ function PendingQueue({
         <div className="pending-list">
           {[
             ...grouped,
-            ...(loose.length
-              ? [
-                  {
-                    task: undefined,
-                    items: loose,
-                    total: loose.reduce((sum, item) => sum + item.tokens, 0),
-                  },
-                ]
-              : []),
+            ...looseGroups,
           ].map((group) => (
-            <div className="pending-group" key={group.task?.id ?? "loose"}>
+            <div className="pending-group" key={group.key}>
               <div className="pending-group-head">
                 <div>
-                  <strong>{group.task?.title ?? "Archived task"}</strong>
+                  <strong>{group.title}</strong>
                   <small>{group.items.length} completion(s)</small>
                 </div>
-                <button onClick={() => cash(group.task?.id)} type="button">
+                <button
+                  onClick={() => cash(group.taskId, group.taskTitle)}
+                  type="button"
+                >
                   <Coins size={16} />
-                  Cash {group.total}
+                  Pay {group.total}
                 </button>
               </div>
               {group.items.map((earning) => (

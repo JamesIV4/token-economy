@@ -50,7 +50,7 @@ type TokenState = {
     patch: Partial<Pick<TokenEarning, "kidId" | "taskId" | "tokens" | "notes">>,
   ) => Promise<void>;
   deleteEarning: (earningId: string) => Promise<void>;
-  cashPending: (input: { kidId: string; taskId?: string }) => Promise<number>;
+  cashPending: (input: { kidId: string; taskId?: string; taskTitle?: string }) => Promise<number>;
   redeemReward: (input: { kidId: string; rewardId: string; notes?: string }) => Promise<number>;
   deleteRedemption: (redemptionId: string) => Promise<void>;
 };
@@ -454,9 +454,13 @@ export const useTokenStore = create<TokenState>((set, get) => ({
     }
     await batch.commit();
   },
-  cashPending: async ({ kidId, taskId }) => {
+  cashPending: async ({ kidId, taskId, taskTitle }) => {
     const pending = get().earnings.filter(
-      (item) => item.kidId === kidId && item.status === "pending" && (!taskId || item.taskId === taskId),
+      (item) =>
+        item.kidId === kidId &&
+        item.status === "pending" &&
+        (!taskId || item.taskId === taskId) &&
+        (!taskTitle || item.taskTitle === taskTitle),
     );
     const total = pending.reduce((sum, item) => sum + item.tokens, 0);
     if (total === 0) return 0;

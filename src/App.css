@@ -648,7 +648,8 @@ button:disabled {
   line-height: 1.2;
 }
 
-.task-title {
+.task-title,
+.reward-button span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -676,7 +677,8 @@ button:disabled {
   line-height: 1;
 }
 
-.task-tokens {
+.task-tokens,
+.reward-button strong {
   justify-self: end;
   white-space: nowrap;
 }
@@ -750,6 +752,17 @@ button:disabled {
   gap: 8px;
 }
 
+.pending-panel .panel-heading {
+  align-items: start;
+}
+
+.pending-panel .primary-action {
+  justify-self: end;
+  min-height: 38px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+
 .pending-group {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -762,7 +775,7 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 10px;
+  padding: 8px 10px;
   background: #fff8df;
 }
 
@@ -781,8 +794,9 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: 10px;
-  padding: 10px;
+  gap: 8px;
+  min-height: 48px;
+  padding: 7px 9px;
   border-top: 1px solid var(--line);
 }
 
@@ -804,6 +818,7 @@ button:disabled {
 .pending-entry strong {
   color: #9a5a00;
   font-size: 1.1rem;
+  line-height: 1;
 }
 
 .icon-actions {
@@ -818,6 +833,11 @@ button:disabled {
   background: #ffffff;
   color: var(--ink);
   border-color: var(--line-strong);
+}
+
+.pending-panel .icon-actions button {
+  min-height: 32px;
+  width: 32px;
 }
 
 .pending-edit-row {
@@ -900,14 +920,22 @@ button:disabled {
 }
 
 .reward-button {
-  min-height: 78px;
+  min-height: 54px;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  align-content: center;
+  gap: 3px 10px;
+  padding: 9px 11px;
   border-left: 5px solid var(--coral);
 }
 
 .reward-button small {
-  grid-column: 1 / -1;
+  grid-column: 1 / 2;
+  grid-row: 2;
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  line-height: 1.1;
 }
 
 .manage-panel {
@@ -1447,8 +1475,7 @@ button:disabled {
   }
 
   .panel-heading,
-  .pending-group-head,
-  .pending-entry {
+  .pending-group-head {
     align-items: stretch;
   }
 
@@ -1468,11 +1495,17 @@ button:disabled {
   }
 
   .pending-entry {
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    align-items: center;
   }
 
-  .pending-entry .icon-actions {
-    grid-column: 1 / -1;
+  .pending-panel .panel-heading {
+    align-items: start;
+  }
+
+  .pending-panel .primary-action {
+    justify-self: start;
+    width: auto;
   }
 
   .bank-stats {
