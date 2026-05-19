@@ -1809,6 +1809,11 @@ select {
   }
 
   .flow-step-title {
+    h2 {
+      font-size: clamp(1.42rem, 6vw, 1.65rem);
+      line-height: 1.05;
+    }
+
     p {
       font-size: 0.82rem;
     }
