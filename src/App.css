@@ -329,11 +329,10 @@
 
 .kid-card {
   position: relative;
-  min-height: 106px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
   gap: 10px;
-  align-items: start;
+  align-items: center;
   padding: 12px 12px 12px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -376,7 +375,7 @@
 
 .kid-card-main {
   min-width: 0;
-  display: grid;
+  display: inline;
   gap: 1px;
   padding-top: 2px;
 }
@@ -1364,7 +1363,6 @@ button:disabled {
   }
 
   .kid-card {
-    min-height: 88px;
     grid-template-columns: 46px minmax(0, 1fr);
     gap: 8px 10px;
     padding: 10px 10px 10px 13px;

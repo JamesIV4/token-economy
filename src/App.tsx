@@ -7,7 +7,6 @@ import {
   Gift,
   History,
   Pencil,
-  PiggyBank,
   Plus,
   RefreshCw,
   RotateCcw,
@@ -248,23 +247,6 @@ function App() {
           <p className="eyebrow">Summer Token Economy</p>
           <h1>Summer Token HQ</h1>
         </div>
-        {/* <div className="top-stats" aria-label={statScope}>
-          <StatTile
-            icon={<Coins size={18} />}
-            label="Pending"
-            value={selectedKid?.pendingTokens ?? totalPending}
-          />
-          <StatTile
-            icon={<PiggyBank size={18} />}
-            label="Banked"
-            value={selectedKid?.bankedTokens ?? totalBanked}
-          />
-          <StatTile
-            icon={<Gift size={18} />}
-            label="Rewards"
-            value={selectedRewardCount}
-          />
-        </div> */}
       </header>
 
       {store.error ? <div className="app-alert">{store.error}</div> : null}
@@ -371,24 +353,6 @@ function ConfigNeeded() {
   );
 }
 
-// function StatTile({
-//   icon,
-//   label,
-//   value,
-// }: {
-//   icon: ReactNode;
-//   label: string;
-//   value: number;
-// }) {
-//   return (
-//     <div className="stat-tile">
-//       {icon}
-//       <span>{label}</span>
-//       <strong>{value}</strong>
-//     </div>
-//   );
-// }
-
 function LoadingPanel() {
   return (
     <section className="panel loading-panel">
@@ -404,7 +368,6 @@ function getFlowStep(stepId: FlowStepId) {
 
 function WorkflowNav({
   activeStep,
-  // stepStats,
   onSelect,
 }: {
   activeStep: FlowStepId;
@@ -421,10 +384,8 @@ function WorkflowNav({
           onClick={() => onSelect(step.id)}
           type="button"
         >
-          {/* <span className="flow-nav-number">{index + 1}</span> */}
           <span className="flow-nav-copy">
             <strong>{step.label}</strong>
-            {/* <small>{stepStats[step.id]}</small> */}
           </span>
           <span className="flow-nav-icon">{step.icon}</span>
         </button>
@@ -449,10 +410,6 @@ function FlowStepBar({
       className="flow-step-bar"
       style={{ "--kid-color": kid.color } as CSSProperties}
     >
-      {/* <div className="flow-step-marker">
-        <span>{activeStep.eyebrow}</span>
-        {activeStep.icon}
-      </div> */}
       <div className="flow-step-title">
         <h2>{activeStep.label}</h2>
         <p>
@@ -494,19 +451,7 @@ function KidSelector({
             <span className="kid-avatar">{initialsFor(kid.name)}</span>
             <span className="kid-card-main">
               <strong>{kid.name}</strong>
-              <small>{kid.id === selectedKidId ? "Selected" : "Ready"}</small>
-            </span>
-            <span className="kid-card-stats">
-              <span className="kid-card-stat pending">
-                <Coins size={15} />
-                <b>{kid.pendingTokens}</b>
-                <small>pending</small>
-              </span>
-              <span className="kid-card-stat banked">
-                <PiggyBank size={15} />
-                <b>{kid.bankedTokens}</b>
-                <small>banked</small>
-              </span>
+              <small>{kid.id === selectedKidId ? " (Selected)" : ""}</small>
             </span>
           </button>
         ))}
