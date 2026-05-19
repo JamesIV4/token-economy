@@ -1123,7 +1123,7 @@ function RewardsPanel({
       <div className="panel-heading">
         <div>
           <p className="eyebrow">Rewards</p>
-          <h2>Spend banked tokens</h2>
+          <h2>Spend {kid.name}'s banked tokens</h2>
         </div>
         <Gift size={22} />
       </div>
