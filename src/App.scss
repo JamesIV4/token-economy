@@ -527,6 +527,32 @@ $white_ffffff: #ffffff;
   white-space: nowrap;
 }
 
+@media (min-width: 621px) {
+  .kid-selector {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .kid-selector-head {
+    display: contents;
+  }
+
+  .kid-selector-head h2 {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .kid-card-frame {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .kid-count {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+  }
+}
+
 .kid-card-grid {
   display: flex;
   gap: 6px;
@@ -711,6 +737,7 @@ $white_ffffff: #ffffff;
   }
 
   b {
+    align-self: center;
     color: var(--teal);
   }
 }
@@ -1266,6 +1293,7 @@ select {
 .bank-stats {
   display: grid;
   gap: 5px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 
   span {
     font-size: 0.74rem;
@@ -1281,11 +1309,64 @@ select {
   }
 }
 
+@media (min-width: 981px) {
+  .bank-panel {
+    display: grid;
+    grid-template-columns: minmax(72px, auto) minmax(320px, 1fr) minmax(260px, 340px);
+    grid-template-areas:
+      "top top top"
+      "total stats adjust";
+    align-items: center;
+    column-gap: 16px;
+    row-gap: 12px;
+  }
+
+  .bank-top {
+    grid-area: top;
+    margin-bottom: 0;
+  }
+
+  .bank-summary {
+    display: contents;
+  }
+
+  .bank-number {
+    grid-area: total;
+  }
+
+  .bank-stats {
+    align-self: stretch;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    grid-area: stats;
+    padding: 0 16px;
+
+    span {
+      font-size: 0.92rem;
+      line-height: 1.15;
+      min-height: 70px;
+      padding: 10px 12px;
+    }
+  }
+
+  .bank-adjust {
+    align-content: center;
+    align-self: stretch;
+    grid-area: adjust;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .bank-adjust label {
+    grid-column: 1/-1;
+  }
+}
+
 .manage-panel {
   margin-top: 14px;
 }
 
 .history-icon {
+  align-self: center;
   background: var(--mint-soft);
   border-radius: 999px;
   color: var(--teal);
@@ -1313,6 +1394,7 @@ select {
 }
 
 .history-delete {
+  align-self: center;
   width: 36px;
   min-height: 36px;
   display: grid;
@@ -1363,7 +1445,11 @@ select {
 }
 
 .kid-add-form {
-  grid-template-columns: minmax(0, 1fr) 150px auto;
+  grid-template-columns: minmax(220px, 1fr) 150px minmax(150px, 204px) auto;
+
+  button {
+    min-width: 86px;
+  }
 }
 
 .manager-row-copy {
@@ -1675,6 +1761,10 @@ select {
     input[aria-label="Max per day"] {
       grid-column: 1/2;
     }
+  }
+
+  .kid-add-form {
+    grid-template-columns: minmax(0, 1fr) 110px minmax(120px, 160px) auto;
   }
 
   .pending-edit-row {
