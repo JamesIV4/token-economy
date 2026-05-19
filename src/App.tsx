@@ -26,7 +26,7 @@ import {
   type FormEvent,
   type ReactNode,
 } from "react";
-import "./App.css";
+import "./App.scss";
 import { CoinBurst, type Burst } from "./components/CoinBurst";
 import { missingFirebaseConfig } from "./lib/firebase";
 import { kidColors } from "./lib/seedData";
