@@ -369,7 +369,7 @@ export const useTokenStore = create<TokenState>((set, get) => ({
     const { db } = getFirebase();
     const kid = get().kids.find((item) => item.id === kidId);
     if (!kid) throw new Error("Kid not found.");
-    const earnedTokens = tokensForTask(tokens, kid.pointMultiplier);
+    const earnedTokens = tokens;
 
     const batch = writeBatch(db);
     const earningRef = doc(collection(db, paths.earnings));

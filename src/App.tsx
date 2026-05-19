@@ -100,6 +100,42 @@ const initialsFor = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join("") || "?";
 
+const scrollShadowClass = (left: boolean, right: boolean) =>
+  `${left ? "has-left-shadow" : ""} ${right ? "has-right-shadow" : ""}`.trim();
+
+function useScrollShadows<T extends HTMLElement>(dependencyKey: string) {
+  const ref = useRef<T | null>(null);
+  const [shadows, setShadows] = useState({ left: false, right: false });
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    const update = () => {
+      const maxScroll = element.scrollWidth - element.clientWidth;
+      const canScroll = maxScroll > 1;
+      setShadows({
+        left: canScroll && element.scrollLeft > 1,
+        right: canScroll && element.scrollLeft < maxScroll - 1,
+      });
+    };
+
+    update();
+    element.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+
+    return () => {
+      element.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      observer.disconnect();
+    };
+  }, [dependencyKey]);
+
+  return { ref, shadows };
+}
+
 const flowSteps: Array<{
   id: FlowStepId;
   label: string;
@@ -250,6 +286,13 @@ function App() {
       </header>
 
       {store.error ? <div className="app-alert">{store.error}</div> : null}
+      {!store.loading && selectedKid ? (
+        <KidSelector
+          kids={activeKids}
+          selectedKidId={selectedKid.id}
+          onSelect={setSelectedKid}
+        />
+      ) : null}
 
       <main className="workflow">
         {store.loading ? (
@@ -267,13 +310,6 @@ function App() {
                 step={activeStep}
                 stepStats={stepStats}
               />
-              {activeStep !== "manage" && (
-                <KidSelector
-                  kids={activeKids}
-                  selectedKidId={selectedKid.id}
-                  onSelect={setSelectedKid}
-                />
-              )}
               <div className="step-content">
                 {activeStep === "record" ? (
                   <QuickEarn
@@ -374,30 +410,36 @@ function WorkflowNav({
   stepStats: Record<FlowStepId, string>;
   onSelect: (step: FlowStepId) => void;
 }) {
+  const { ref, shadows } = useScrollShadows<HTMLElement>("flow-nav");
+
   return (
-    <nav className="flow-nav" aria-label="Token economy flow">
-      {flowSteps.map((step) => (
-        <button
-          aria-current={activeStep === step.id ? "step" : undefined}
-          className={activeStep === step.id ? "is-active" : ""}
-          key={step.id}
-          onClick={() => onSelect(step.id)}
-          type="button"
-        >
-          <span className="flow-nav-copy">
-            <strong>{step.label}</strong>
-          </span>
-          <span className="flow-nav-icon">{step.icon}</span>
-        </button>
-      ))}
-    </nav>
+    <div
+      className={`flow-nav-frame ${scrollShadowClass(shadows.left, shadows.right)}`}
+    >
+      <nav className="flow-nav" aria-label="Token economy flow" ref={ref}>
+        {flowSteps.map((step) => (
+          <button
+            aria-current={activeStep === step.id ? "step" : undefined}
+            className={activeStep === step.id ? "is-active" : ""}
+            key={step.id}
+            onClick={() => onSelect(step.id)}
+            type="button"
+          >
+            <span className="flow-nav-copy">
+              <strong>{step.label}</strong>
+            </span>
+            <span className="flow-nav-icon">{step.icon}</span>
+          </button>
+        ))}
+      </nav>
+    </div>
   );
 }
 
 function FlowStepBar({
   kid,
   step,
-  stepStats,
+  // stepStats,
 }: {
   kid: Kid;
   step: FlowStepId;
@@ -412,10 +454,10 @@ function FlowStepBar({
     >
       <div className="flow-step-title">
         <h2>{activeStep.label}</h2>
-        <p>
+        {/* <p>
           {kid.name} · {stepStats[activeStep.id]} · {kid.pendingTokens} pending
           · {kid.bankedTokens} banked
-        </p>
+        </p> */}
       </div>
     </div>
   );
@@ -430,31 +472,36 @@ function KidSelector({
   selectedKidId?: string;
   onSelect: (kidId: string) => void;
 }) {
+  const { ref, shadows } = useScrollShadows<HTMLDivElement>(
+    `${selectedKidId ?? ""}:${kids.map((kid) => `${kid.id}-${kid.name}`).join("|")}`,
+  );
+
   return (
-    <section className="panel kid-selector" aria-label="Choose kid">
+    <section className="kid-selector" aria-label="Choose kid">
       <div className="kid-selector-head">
-        <div>
-          <p className="eyebrow">Kids</p>
-          <h2>Choose kid</h2>
-        </div>
+        <h2>Choose kid</h2>
         <span className="kid-count">{kids.length} active</span>
       </div>
-      <div className="kid-card-grid">
-        {kids.map((kid) => (
-          <button
-            className={`kid-card ${kid.id === selectedKidId ? "is-active" : ""}`}
-            key={kid.id}
-            onClick={() => onSelect(kid.id)}
-            style={{ "--kid-color": kid.color } as CSSProperties}
-            type="button"
-          >
-            <span className="kid-avatar">{initialsFor(kid.name)}</span>
-            <span className="kid-card-main">
-              <strong>{kid.name}</strong>
-              <small>{kid.id === selectedKidId ? " (Selected)" : ""}</small>
-            </span>
-          </button>
-        ))}
+      <div
+        className={`kid-card-frame ${scrollShadowClass(shadows.left, shadows.right)}`}
+      >
+        <div className="kid-card-grid" ref={ref}>
+          {kids.map((kid) => (
+            <button
+              aria-pressed={kid.id === selectedKidId}
+              className={`kid-card ${kid.id === selectedKidId ? "is-active" : ""}`}
+              key={kid.id}
+              onClick={() => onSelect(kid.id)}
+              style={{ "--kid-color": kid.color } as CSSProperties}
+              type="button"
+            >
+              <span className="kid-avatar">{initialsFor(kid.name)}</span>
+              <span className="kid-card-main">
+                <strong>{kid.name}</strong>
+              </span>
+            </button>
+          ))}
+        </div>
       </div>
     </section>
   );
@@ -594,7 +641,7 @@ function QuickEarn({
           const earnedTokens = tokensForTask(task.tokens, kid.pointMultiplier);
           const multiplierText =
             kid.pointMultiplier > 1
-              ? `x ${formatMultiplier(kid.pointMultiplier)}`
+              ? `x${formatMultiplier(kid.pointMultiplier)} token value`
               : "";
           const maxPerDayText = task.maxPerDay
             ? `${todayCount}/${task.maxPerDay} today`
@@ -607,9 +654,8 @@ function QuickEarn({
               onClick={() => completeTask(task)}
               type="button"
             >
-              <span className="task-title">{task.title}</span>
-              <span className="task-meta">
-                <strong>+{earnedTokens}</strong>
+              <span className="task-copy">
+                <span className="task-title">{task.title}</span>
                 {multiplierText || maxPerDayText ? (
                   <small>
                     {multiplierText ? <span>{multiplierText}</span> : null}
@@ -617,6 +663,7 @@ function QuickEarn({
                   </small>
                 ) : null}
               </span>
+              <strong className="task-tokens">+{earnedTokens}</strong>
             </button>
           );
         })}
@@ -637,7 +684,7 @@ function QuickEarn({
             />
           </label>
           <label className="edit-field">
-            <span>Base tokens</span>
+            <span>Tokens</span>
             <input
               min="0"
               onChange={(event) => setCustomTokens(event.target.value)}
