@@ -1,6 +1,6 @@
 # Summer Token Economy
 
-A Vite + React + Zustand PWA for tracking summer token tasks, pending token payouts, physical bank totals, and reward redemptions in from a Google Firestore.
+A Vite + React + Zustand PWA for tracking summer token tasks, physical bank totals, and reward redemptions in Google Firestore.
 
 ## Setup
 

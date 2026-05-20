@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: "Summer Token Economy",
         short_name: "Token Bank",
-        description: "Track pending tokens, physical bank totals, and summer rewards.",
+        description: "Track task tokens, physical bank totals, and summer rewards.",
         theme_color: "#15917f",
         background_color: "#f6fbf8",
         display: "standalone",

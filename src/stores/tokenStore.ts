@@ -45,12 +45,7 @@ type TokenState = {
   updateReward: (rewardId: string, patch: Partial<Pick<Reward, "title" | "cost" | "active">>) => Promise<void>;
   addEarning: (input: { kidId: string; taskId: string; notes?: string }) => Promise<number>;
   addCustomEarning: (input: { kidId: string; title: string; tokens: number; notes?: string }) => Promise<number>;
-  updateEarning: (
-    earningId: string,
-    patch: Partial<Pick<TokenEarning, "kidId" | "taskId" | "tokens" | "notes">>,
-  ) => Promise<void>;
   deleteEarning: (earningId: string) => Promise<void>;
-  cashPending: (input: { kidId: string; taskId?: string; taskTitle?: string }) => Promise<number>;
   redeemReward: (input: { kidId: string; rewardId: string; notes?: string }) => Promise<number>;
   deleteRedemption: (redemptionId: string) => Promise<void>;
 };
@@ -94,7 +89,6 @@ const readKid = (id: string, data: DocumentData): Kid => ({
   color: stringValue(data.color, kidColors[0]),
   active: booleanValue(data.active, true),
   bankedTokens: numberValue(data.bankedTokens),
-  pendingTokens: numberValue(data.pendingTokens),
   pointMultiplier: normalizeMultiplier(numberValue(data.pointMultiplier, 1)),
   lifetimeEarned: numberValue(data.lifetimeEarned),
   lifetimeRedeemed: numberValue(data.lifetimeRedeemed),
@@ -130,10 +124,8 @@ const readEarning = (id: string, data: DocumentData): TokenEarning => ({
   taskTitle: stringValue(data.taskTitle, "Task"),
   tokens: numberValue(data.tokens, 1),
   notes: stringValue(data.notes),
-  status: data.status === "cashed" ? "cashed" : "pending",
   createdAt: toMillis(data.createdAt),
   updatedAt: toMillis(data.updatedAt),
-  cashedAt: toMillis(data.cashedAt),
 });
 
 const readRedemption = (id: string, data: DocumentData): RewardRedemption => ({
@@ -281,7 +273,6 @@ export const useTokenStore = create<TokenState>((set, get) => ({
       color: color ?? kidColors[kids.length % kidColors.length],
       active: true,
       bankedTokens,
-      pendingTokens: 0,
       pointMultiplier: normalizeMultiplier(pointMultiplier),
       lifetimeEarned: 0,
       lifetimeRedeemed: 0,
@@ -354,12 +345,12 @@ export const useTokenStore = create<TokenState>((set, get) => ({
       taskTitle: task.title,
       tokens: earnedTokens,
       notes: cleanNote(notes),
-      status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
     batch.update(doc(db, paths.kids, kidId), {
-      pendingTokens: increment(earnedTokens),
+      bankedTokens: increment(earnedTokens),
+      lifetimeEarned: increment(earnedTokens),
       updatedAt: serverTimestamp(),
     });
     await batch.commit();
@@ -379,59 +370,16 @@ export const useTokenStore = create<TokenState>((set, get) => ({
       taskTitle: title.trim(),
       tokens: earnedTokens,
       notes: cleanNote(notes),
-      status: "pending",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
     batch.update(doc(db, paths.kids, kidId), {
-      pendingTokens: increment(earnedTokens),
+      bankedTokens: increment(earnedTokens),
+      lifetimeEarned: increment(earnedTokens),
       updatedAt: serverTimestamp(),
     });
     await batch.commit();
     return earnedTokens;
-  },
-  updateEarning: async (earningId, patch) => {
-    const { db } = getFirebase();
-    const current = get().earnings.find((item) => item.id === earningId);
-    if (!current) throw new Error("Pending task completion not found.");
-    if (current.status !== "pending") throw new Error("Only pending completions can be edited.");
-
-    const task = patch.taskId ? get().tasks.find((item) => item.id === patch.taskId) : undefined;
-    const nextKidId = patch.kidId ?? current.kidId;
-    const nextTaskId = patch.taskId ?? current.taskId;
-    const nextTaskTitle = task?.title ?? current.taskTitle;
-    const nextTokens = patch.tokens ?? task?.tokens ?? current.tokens;
-
-    const batch = writeBatch(db);
-    batch.update(doc(db, paths.earnings, earningId), {
-      kidId: nextKidId,
-      taskId: nextTaskId,
-      taskTitle: nextTaskTitle,
-      tokens: nextTokens,
-      notes: patch.notes === undefined ? current.notes : cleanNote(patch.notes),
-      updatedAt: serverTimestamp(),
-    });
-
-    if (nextKidId === current.kidId) {
-      const delta = nextTokens - current.tokens;
-      if (delta !== 0) {
-        batch.update(doc(db, paths.kids, current.kidId), {
-          pendingTokens: increment(delta),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    } else {
-      batch.update(doc(db, paths.kids, current.kidId), {
-        pendingTokens: increment(-current.tokens),
-        updatedAt: serverTimestamp(),
-      });
-      batch.update(doc(db, paths.kids, nextKidId), {
-        pendingTokens: increment(nextTokens),
-        updatedAt: serverTimestamp(),
-      });
-    }
-
-    await batch.commit();
   },
   deleteEarning: async (earningId) => {
     const { db } = getFirebase();
@@ -440,48 +388,12 @@ export const useTokenStore = create<TokenState>((set, get) => ({
 
     const batch = writeBatch(db);
     batch.delete(doc(db, paths.earnings, earningId));
-    if (current.status === "pending") {
-      batch.update(doc(db, paths.kids, current.kidId), {
-        pendingTokens: increment(-current.tokens),
-        updatedAt: serverTimestamp(),
-      });
-    } else {
-      batch.update(doc(db, paths.kids, current.kidId), {
-        bankedTokens: increment(-current.tokens),
-        lifetimeEarned: increment(-current.tokens),
-        updatedAt: serverTimestamp(),
-      });
-    }
-    await batch.commit();
-  },
-  cashPending: async ({ kidId, taskId, taskTitle }) => {
-    const pending = get().earnings.filter(
-      (item) =>
-        item.kidId === kidId &&
-        item.status === "pending" &&
-        (!taskId || item.taskId === taskId) &&
-        (!taskTitle || item.taskTitle === taskTitle),
-    );
-    const total = pending.reduce((sum, item) => sum + item.tokens, 0);
-    if (total === 0) return 0;
-
-    const { db } = getFirebase();
-    const batch = writeBatch(db);
-    pending.forEach((item) => {
-      batch.update(doc(db, paths.earnings, item.id), {
-        status: "cashed",
-        cashedAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-    });
-    batch.update(doc(db, paths.kids, kidId), {
-      pendingTokens: increment(-total),
-      bankedTokens: increment(total),
-      lifetimeEarned: increment(total),
+    batch.update(doc(db, paths.kids, current.kidId), {
+      bankedTokens: increment(-current.tokens),
+      lifetimeEarned: increment(-current.tokens),
       updatedAt: serverTimestamp(),
     });
     await batch.commit();
-    return total;
   },
   redeemReward: async ({ kidId, rewardId, notes }) => {
     const reward = get().rewards.find((item) => item.id === rewardId);

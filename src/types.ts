@@ -4,7 +4,6 @@ export type Kid = {
   color: string;
   active: boolean;
   bankedTokens: number;
-  pendingTokens: number;
   pointMultiplier: number;
   lifetimeEarned: number;
   lifetimeRedeemed: number;
@@ -33,8 +32,6 @@ export type Reward = {
   updatedAt?: number;
 };
 
-export type EarningStatus = "pending" | "cashed";
-
 export type TokenEarning = {
   id: string;
   kidId: string;
@@ -42,10 +39,8 @@ export type TokenEarning = {
   taskTitle: string;
   tokens: number;
   notes: string;
-  status: EarningStatus;
   createdAt?: number;
   updatedAt?: number;
-  cashedAt?: number;
 };
 
 export type RewardRedemption = {
@@ -58,4 +53,4 @@ export type RewardRedemption = {
   createdAt?: number;
 };
 
-export type BurstKind = "earn" | "cash" | "reward";
+export type BurstKind = "earn" | "reward";

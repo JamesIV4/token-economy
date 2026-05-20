@@ -1,6 +1,5 @@
 import {
   Archive,
-  Banknote,
   Check,
   CheckCircle2,
   Coins,
@@ -43,13 +42,7 @@ import type {
 
 type Notify = (message: string) => void;
 type TriggerBurst = (kind: BurstKind, amount: number, label?: string) => void;
-type FlowStepId =
-  | "record"
-  | "pending"
-  | "bank"
-  | "redeem"
-  | "history"
-  | "manage";
+type FlowStepId = "record" | "bank" | "redeem" | "manage";
 
 const tokenLabel = (tokens: number) =>
   `${tokens} token${tokens === 1 ? "" : "s"}`;
@@ -149,33 +142,21 @@ const flowSteps: Array<{
     icon: <CheckCircle2 size={18} />,
   },
   {
-    id: "pending",
-    label: "Pay pending",
-    eyebrow: "Step 2",
-    icon: <Banknote size={18} />,
-  },
-  {
     id: "bank",
-    label: "Bank balance",
-    eyebrow: "Step 3",
+    label: "Token bank",
+    eyebrow: "Step 2",
     icon: <Wallet size={18} />,
   },
   {
     id: "redeem",
     label: "Redeem reward",
-    eyebrow: "Step 4",
+    eyebrow: "Step 3",
     icon: <Gift size={18} />,
-  },
-  {
-    id: "history",
-    label: "Task history",
-    eyebrow: "Step 5",
-    icon: <History size={18} />,
   },
   {
     id: "manage",
     label: "Manage",
-    eyebrow: "Step 6",
+    eyebrow: "Step 4",
     icon: <Settings size={18} />,
   },
 ];
@@ -224,36 +205,18 @@ function App() {
   );
   const selectedKid =
     activeKids.find((kid) => kid.id === store.selectedKidId) ?? activeKids[0];
-  const totalPending = activeKids.reduce(
-    (sum, kid) => sum + kid.pendingTokens,
-    0,
-  );
   const totalBanked = activeKids.reduce(
     (sum, kid) => sum + kid.bankedTokens,
     0,
   );
-  const selectedRewardCount = selectedKid
-    ? store.redemptions.filter(
-        (redemption) => redemption.kidId === selectedKid.id,
-      ).length
-    : store.redemptions.length;
-  const selectedHistoryCount = selectedKid
-    ? store.earnings.filter((earning) => earning.kidId === selectedKid.id)
-        .length + selectedRewardCount
-    : store.earnings.length + store.redemptions.length;
-  // const statScope = selectedKid
-  //   ? `${selectedKid.name}'s totals`
-  //   : "Household totals";
   const activeTaskCount = store.tasks.filter((task) => task.active).length;
   const activeRewardCount = store.rewards.filter(
     (reward) => reward.active,
   ).length;
   const stepStats: Record<FlowStepId, string> = {
     record: `${activeTaskCount} tasks`,
-    pending: `${selectedKid?.pendingTokens ?? totalPending} pending`,
     bank: `${selectedKid?.bankedTokens ?? totalBanked} banked`,
     redeem: `${activeRewardCount} rewards`,
-    history: `${selectedHistoryCount} entries`,
     manage: `${store.kids.length} kids`,
   };
 
@@ -320,32 +283,22 @@ function App() {
                     onNotice={setNotice}
                   />
                 ) : null}
-                {activeStep === "pending" ? (
-                  <PendingQueue
-                    kid={selectedKid}
-                    kids={activeKids}
-                    tasks={store.tasks}
-                    earnings={store.earnings}
-                    onBurst={triggerBurst}
-                    onNotice={setNotice}
-                  />
-                ) : null}
                 {activeStep === "bank" ? (
-                  <KidBank kid={selectedKid} onNotice={setNotice} />
+                  <div className="bank-step-stack">
+                    <KidBank kid={selectedKid} onNotice={setNotice} />
+                    <HistoryPanel
+                      kid={selectedKid}
+                      earnings={store.earnings}
+                      redemptions={store.redemptions}
+                      onNotice={setNotice}
+                    />
+                  </div>
                 ) : null}
                 {activeStep === "redeem" ? (
                   <RewardsPanel
                     kid={selectedKid}
                     rewards={store.rewards}
                     onBurst={triggerBurst}
-                    onNotice={setNotice}
-                  />
-                ) : null}
-                {activeStep === "history" ? (
-                  <HistoryPanel
-                    kid={selectedKid}
-                    earnings={store.earnings}
-                    redemptions={store.redemptions}
                     onNotice={setNotice}
                   />
                 ) : null}
@@ -454,10 +407,6 @@ function FlowStepBar({
     >
       <div className="flow-step-title">
         <h2>{activeStep.label}</h2>
-        {/* <p>
-          {kid.name} · {stepStats[activeStep.id]} · {kid.pendingTokens} pending
-          · {kid.bankedTokens} banked
-        </p> */}
       </div>
     </div>
   );
@@ -531,7 +480,7 @@ function FirstKidPanel({ onNotice }: { onNotice: Notify }) {
       <h2>Add your first kid</h2>
       <p>
         The starter tasks and rewards are ready. Add a kid to start logging
-        pending tokens.
+        tokens.
       </p>
       <form className="inline-form" onSubmit={submit}>
         <input
@@ -578,7 +527,7 @@ function QuickEarn({
       });
       setNote("");
       onBurst("earn", tokens, `+${tokens}`);
-      onNotice(`${kid.name} earned ${tokenLabel(tokens)} pending.`);
+      onNotice(`${kid.name} banked ${tokenLabel(tokens)}.`);
     } catch (error) {
       onNotice(messageFromError(error));
     }
@@ -599,7 +548,7 @@ function QuickEarn({
       setCustomTokens("1");
       setCustomNote("");
       onBurst("earn", tokens, `+${tokens}`);
-      onNotice(`${kid.name} earned ${tokenLabel(tokens)} pending.`);
+      onNotice(`${kid.name} banked ${tokenLabel(tokens)}.`);
     } catch (error) {
       onNotice(messageFromError(error));
     }
@@ -614,7 +563,7 @@ function QuickEarn({
         </div>
         <span className="summary-pill">
           <Coins size={16} />
-          {kid.pendingTokens} pending
+          {kid.bankedTokens} banked
         </span>
       </div>
 
@@ -702,325 +651,11 @@ function QuickEarn({
           </label>
           <button type="submit">
             <Plus size={16} />
-            Add pending
+            Add tokens
           </button>
         </div>
       </form>
     </section>
-  );
-}
-
-function PendingQueue({
-  kid,
-  kids,
-  tasks,
-  earnings,
-  onBurst,
-  onNotice,
-}: {
-  kid: Kid;
-  kids: Kid[];
-  tasks: TokenTask[];
-  earnings: TokenEarning[];
-  onBurst: TriggerBurst;
-  onNotice: Notify;
-}) {
-  const cashPending = useTokenStore((state) => state.cashPending);
-  const updateEarning = useTokenStore((state) => state.updateEarning);
-  const deleteEarning = useTokenStore((state) => state.deleteEarning);
-  const [editingId, setEditingId] = useState<string>();
-  const [draft, setDraft] = useState({
-    kidId: kid.id,
-    taskId: "",
-    tokens: "0",
-    notes: "",
-  });
-  const pending = earnings.filter(
-    (earning) => earning.kidId === kid.id && earning.status === "pending",
-  );
-  const grouped = tasks
-    .map((task) => {
-      const items = pending.filter((earning) => earning.taskId === task.id);
-      return {
-        key: task.id,
-        taskId: task.id,
-        taskTitle: undefined,
-        title: task.title,
-        items,
-        total: items.reduce((sum, item) => sum + item.tokens, 0),
-      };
-    })
-    .filter((group) => group.items.length > 0);
-  const loose = pending.filter(
-    (earning) => !tasks.some((task) => task.id === earning.taskId),
-  );
-  const looseGroups = loose.reduce<
-    Array<{
-      key: string;
-      taskId: string;
-      taskTitle?: string;
-      title: string;
-      items: TokenEarning[];
-      total: number;
-    }>
-  >((groups, earning) => {
-    const title = earning.taskTitle || "Archived task";
-    const key = `${earning.taskId}:${title}`;
-    const group = groups.find((item) => item.key === key);
-    if (group) {
-      group.items.push(earning);
-      group.total += earning.tokens;
-      return groups;
-    }
-
-    groups.push({
-      key,
-      taskId: earning.taskId,
-      taskTitle: earning.taskId === "custom" ? title : undefined,
-      title,
-      items: [earning],
-      total: earning.tokens,
-    });
-    return groups;
-  }, []);
-  const total = pending.reduce((sum, item) => sum + item.tokens, 0);
-
-  const cash = async (taskId?: string, taskTitle?: string) => {
-    try {
-      const cashed = await cashPending({ kidId: kid.id, taskId, taskTitle });
-      if (cashed > 0) {
-        onBurst("cash", cashed, `+${cashed}`);
-        onNotice(`${kid.name}'s physical bank got ${tokenLabel(cashed)}.`);
-      }
-    } catch (error) {
-      onNotice(messageFromError(error));
-    }
-  };
-
-  const beginEdit = (earning: TokenEarning) => {
-    setEditingId(earning.id);
-    setDraft({
-      kidId: earning.kidId,
-      taskId: earning.taskId,
-      tokens: String(earning.tokens),
-      notes: earning.notes,
-    });
-  };
-
-  const saveEdit = async () => {
-    if (!editingId) return;
-    try {
-      await updateEarning(editingId, {
-        kidId: draft.kidId,
-        taskId: draft.taskId,
-        tokens: Math.max(0, Math.round(numberFromInput(draft.tokens))),
-        notes: draft.notes,
-      });
-      setEditingId(undefined);
-      onNotice("Pending tokens updated.");
-    } catch (error) {
-      onNotice(messageFromError(error));
-    }
-  };
-
-  const remove = async (earning: TokenEarning) => {
-    if (!window.confirm("Remove this pending task completion?")) return;
-    try {
-      await deleteEarning(earning.id);
-      onNotice("Pending entry removed.");
-    } catch (error) {
-      onNotice(messageFromError(error));
-    }
-  };
-
-  return (
-    <section className="panel pending-panel">
-      <div className="panel-heading">
-        <div>
-          <p className="eyebrow">Pending tokens</p>
-          <h2>
-            {kid.name} is owed {tokenLabel(total)}
-          </h2>
-        </div>
-        <button
-          className="primary-action"
-          disabled={total === 0}
-          onClick={() => cash()}
-          type="button"
-        >
-          <Banknote size={18} />
-          Pay out all {total}
-        </button>
-      </div>
-
-      {total === 0 ? (
-        <div className="empty-line">
-          <CheckCircle2 size={20} />
-          No pending tokens for {kid.name}.
-        </div>
-      ) : (
-        <div className="pending-list">
-          {[
-            ...grouped,
-            ...looseGroups,
-          ].map((group) => (
-            <div className="pending-group" key={group.key}>
-              <div className="pending-group-head">
-                <div>
-                  <strong>{group.title}</strong>
-                  <small>{group.items.length} completion(s)</small>
-                </div>
-                <button
-                  onClick={() => cash(group.taskId, group.taskTitle)}
-                  type="button"
-                >
-                  <Coins size={16} />
-                  Pay {group.total}
-                </button>
-              </div>
-              {group.items.map((earning) => (
-                <div className="pending-entry" key={earning.id}>
-                  {editingId === earning.id ? (
-                    <PendingEditRow
-                      draft={draft}
-                      kids={kids}
-                      tasks={tasks}
-                      onCancel={() => setEditingId(undefined)}
-                      onDraft={setDraft}
-                      onSave={saveEdit}
-                    />
-                  ) : (
-                    <>
-                      <div>
-                        <span>{formatWhen(earning.createdAt)}</span>
-                        {earning.notes ? <p>{earning.notes}</p> : null}
-                      </div>
-                      <strong>+{earning.tokens}</strong>
-                      <div className="icon-actions">
-                        <button
-                          aria-label="Edit pending entry"
-                          onClick={() => beginEdit(earning)}
-                          title="Edit pending entry"
-                          type="button"
-                        >
-                          <Pencil size={16} />
-                        </button>
-                        <button
-                          aria-label="Remove pending entry"
-                          onClick={() => remove(earning)}
-                          title="Remove pending entry"
-                          type="button"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function PendingEditRow({
-  draft,
-  kids,
-  tasks,
-  onCancel,
-  onDraft,
-  onSave,
-}: {
-  draft: { kidId: string; taskId: string; tokens: string; notes: string };
-  kids: Kid[];
-  tasks: TokenTask[];
-  onCancel: () => void;
-  onDraft: (draft: {
-    kidId: string;
-    taskId: string;
-    tokens: string;
-    notes: string;
-  }) => void;
-  onSave: () => void;
-}) {
-  const tokensForDraft = (kidId: string, taskId: string, fallback: string) => {
-    const kid = kids.find((item) => item.id === kidId);
-    const task = tasks.find((item) => item.id === taskId);
-    return kid && task
-      ? String(tokensForTask(task.tokens, kid.pointMultiplier))
-      : fallback;
-  };
-
-  return (
-    <div className="pending-edit-row">
-      <select
-        onChange={(event) => {
-          const kidId = event.target.value;
-          onDraft({
-            ...draft,
-            kidId,
-            tokens: tokensForDraft(kidId, draft.taskId, draft.tokens),
-          });
-        }}
-        value={draft.kidId}
-      >
-        {kids.map((kid) => (
-          <option key={kid.id} value={kid.id}>
-            {kid.name}
-          </option>
-        ))}
-      </select>
-      <select
-        onChange={(event) => {
-          const taskId = event.target.value;
-          onDraft({
-            ...draft,
-            taskId,
-            tokens: tokensForDraft(draft.kidId, taskId, draft.tokens),
-          });
-        }}
-        value={draft.taskId}
-      >
-        {tasks.map((task) => (
-          <option key={task.id} value={task.id}>
-            {task.title}
-          </option>
-        ))}
-      </select>
-      <input
-        aria-label="Token amount"
-        min="0"
-        onChange={(event) => onDraft({ ...draft, tokens: event.target.value })}
-        type="number"
-        value={draft.tokens}
-      />
-      <input
-        onChange={(event) => onDraft({ ...draft, notes: event.target.value })}
-        placeholder="Note"
-        value={draft.notes}
-      />
-      <div className="icon-actions">
-        <button
-          aria-label="Save pending entry"
-          onClick={onSave}
-          title="Save pending entry"
-          type="button"
-        >
-          <Save size={16} />
-        </button>
-        <button
-          aria-label="Cancel edit"
-          onClick={onCancel}
-          title="Cancel edit"
-          type="button"
-        >
-          <X size={16} />
-        </button>
-      </div>
-    </div>
   );
 }
 
@@ -1033,15 +668,14 @@ function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
       <div className="bank-top">
         <div>
           <p className="eyebrow">{kid.name}</p>
-          <h2>Physical bank</h2>
+          <h2>Tokens</h2>
         </div>
         <Wallet size={22} />
       </div>
       <div className="bank-summary">
         <div className="bank-number">{kid.bankedTokens}</div>
         <div className="bank-stats">
-          <span>{kid.pendingTokens} pending</span>
-          <span>{kid.lifetimeEarned} cashed in</span>
+          <span>{kid.lifetimeEarned} earned</span>
           <span>{kid.lifetimeRedeemed} redeemed</span>
         </div>
       </div>
@@ -1072,9 +706,9 @@ function BankAdjustForm({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
 
   return (
     <form className="bank-adjust" onSubmit={saveBank}>
-      <label className="bold-label">Edit bank total</label>
+      <label className="bold-label">Edit token count</label>
       <input
-        aria-label="Physical bank total"
+        aria-label="Token count"
         min="0"
         onChange={(event) => setBankDraft(event.target.value)}
         type="number"
@@ -1182,9 +816,9 @@ function HistoryPanel({
         kind: "earning" as const,
         title: earning.taskTitle,
         amount: earning.tokens,
-        status: earning.status,
+        status: "earned",
         notes: earning.notes,
-        at: earning.cashedAt ?? earning.createdAt,
+        at: earning.createdAt,
       })),
     ...redemptions
       .filter((redemption) => redemption.kidId === kid.id)
@@ -1221,8 +855,8 @@ function HistoryPanel({
     <section className="panel history-panel">
       <div className="panel-heading">
         <div>
-          <p className="eyebrow">History</p>
-          <h2>{kid.name}'s ledger</h2>
+          <p className="eyebrow">Transactions</p>
+          <h2>{kid.name}'s token history</h2>
         </div>
         <History size={22} />
       </div>
@@ -1880,9 +1514,7 @@ function KidManager({ kids, onNotice }: { kids: Kid[]; onNotice: Notify }) {
                   <span className="kid-dot" />
                   <div className="kid-manager-copy">
                     <strong>{kid.name}</strong>
-                    <small>
-                      {kid.bankedTokens} banked - {kid.pendingTokens} pending
-                    </small>
+                    <small>{kid.bankedTokens} banked</small>
                     <small>
                       x{formatMultiplier(kid.pointMultiplier)} task multiplier
                     </small>
