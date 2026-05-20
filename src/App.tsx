@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import {
   useEffect,
+  useCallback,
   useMemo,
   useRef,
   useState,
@@ -26,7 +27,10 @@ import {
   type ReactNode,
 } from "react";
 import "./App.scss";
-import { CoinBurst, type Burst } from "./components/CoinBurst";
+import {
+  JarTransactionLayer,
+  type JarTransactionBurst,
+} from "./components/JarTransactionLayer";
 import { MasonJarBank } from "./components/MasonJarBank";
 import { missingFirebaseConfig } from "./lib/firebase";
 import { kidColors } from "./lib/seedData";
@@ -42,7 +46,16 @@ import type {
 } from "./types";
 
 type Notify = (message: string) => void;
-type TriggerBurst = (kind: BurstKind, amount: number, label?: string) => void;
+type TriggerBurst = (
+  kind: BurstKind,
+  amount: number,
+  label: string | undefined,
+  options: {
+    disableInteraction?: boolean;
+    kid: Kid;
+    startCount: number;
+  },
+) => void;
 type FlowStepId = "record" | "bank" | "redeem" | "manage";
 
 const tokenLabel = (tokens: number) =>
@@ -168,7 +181,7 @@ function App() {
   const setSelectedKid = useTokenStore((state) => state.setSelectedKid);
   const store = useTokenStore();
   const [activeStep, setActiveStep] = useState<FlowStepId>("record");
-  const [bursts, setBursts] = useState<Burst[]>([]);
+  const [jarBurst, setJarBurst] = useState<JarTransactionBurst>();
   const [notice, setNotice] = useState("");
   const seeded = useRef(false);
 
@@ -221,19 +234,21 @@ function App() {
     manage: `${store.kids.length} kids`,
   };
 
-  const triggerBurst: TriggerBurst = (kind, amount, label) => {
+  const triggerBurst: TriggerBurst = (kind, amount, label, options) => {
     const id = Date.now() + Math.random();
-    const nextBurst = {
+    const nextBurst: JarTransactionBurst = {
+      accentColor: options.kid.color,
       id,
       amount,
-      kind,
+      disableInteraction: options.disableInteraction,
+      kidName: options.kid.name,
+      kind: kind === "reward" ? "withdraw" : "deposit",
       label: label ?? (kind === "reward" ? `-${amount}` : `+${amount}`),
+      startCount: options.startCount,
     };
-    setBursts((current) => [...current, nextBurst]);
-    window.setTimeout(() => {
-      setBursts((current) => current.filter((burst) => burst.id !== id));
-    }, 1400);
+    setJarBurst(nextBurst);
   };
+  const clearJarBurst = useCallback(() => setJarBurst(undefined), []);
 
   if (missingFirebaseConfig.length > 0) {
     return <ConfigNeeded />;
@@ -241,7 +256,10 @@ function App() {
 
   return (
     <div className="app-shell">
-      <CoinBurst bursts={bursts} />
+      <JarTransactionLayer
+        burst={jarBurst}
+        onDone={clearJarBurst}
+      />
       <header className="topbar">
         <div>
           <p className="eyebrow">Summer Token Economy</p>
@@ -286,7 +304,11 @@ function App() {
                 ) : null}
                 {activeStep === "bank" ? (
                   <div className="bank-step-stack">
-                    <KidBank kid={selectedKid} onNotice={setNotice} />
+                    <KidBank
+                      kid={selectedKid}
+                      onBurst={triggerBurst}
+                      onNotice={setNotice}
+                    />
                     <HistoryPanel
                       kid={selectedKid}
                       earnings={store.earnings}
@@ -527,7 +549,11 @@ function QuickEarn({
         notes: note,
       });
       setNote("");
-      onBurst("earn", tokens, `+${tokens}`);
+      onBurst("earn", tokens, `+${tokens}`, {
+        disableInteraction: true,
+        kid,
+        startCount: kid.bankedTokens,
+      });
       onNotice(`${kid.name} banked ${tokenLabel(tokens)}.`);
     } catch (error) {
       onNotice(messageFromError(error));
@@ -548,7 +574,11 @@ function QuickEarn({
       setCustomTitle("");
       setCustomTokens("1");
       setCustomNote("");
-      onBurst("earn", tokens, `+${tokens}`);
+      onBurst("earn", tokens, `+${tokens}`, {
+        disableInteraction: true,
+        kid,
+        startCount: kid.bankedTokens,
+      });
       onNotice(`${kid.name} banked ${tokenLabel(tokens)}.`);
     } catch (error) {
       onNotice(messageFromError(error));
@@ -660,7 +690,15 @@ function QuickEarn({
   );
 }
 
-function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
+function KidBank({
+  kid,
+  onBurst,
+  onNotice,
+}: {
+  kid: Kid;
+  onBurst: TriggerBurst;
+  onNotice: Notify;
+}) {
   return (
     <section
       className="panel bank-panel"
@@ -683,6 +721,7 @@ function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
       <BankAdjustForm
         key={`${kid.id}-${kid.bankedTokens}`}
         kid={kid}
+        onBurst={onBurst}
         onNotice={onNotice}
       />
       <MasonJarBank
@@ -694,16 +733,33 @@ function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
   );
 }
 
-function BankAdjustForm({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
+function BankAdjustForm({
+  kid,
+  onBurst,
+  onNotice,
+}: {
+  kid: Kid;
+  onBurst: TriggerBurst;
+  onNotice: Notify;
+}) {
   const updateKid = useTokenStore((state) => state.updateKid);
   const [bankDraft, setBankDraft] = useState(String(kid.bankedTokens));
 
   const saveBank = async (event: FormEvent) => {
     event.preventDefault();
+    const nextTotal = Math.max(0, Math.round(numberFromInput(bankDraft)));
+    const delta = nextTotal - kid.bankedTokens;
+
     try {
       await updateKid(kid.id, {
-        bankedTokens: Math.max(0, Math.round(numberFromInput(bankDraft))),
+        bankedTokens: nextTotal,
       });
+      if (delta !== 0) {
+        onBurst(delta > 0 ? "earn" : "reward", Math.abs(delta), undefined, {
+          kid,
+          startCount: kid.bankedTokens,
+        });
+      }
       onNotice(`${kid.name}'s bank total updated.`);
     } catch (error) {
       onNotice(messageFromError(error));
@@ -750,7 +806,11 @@ function RewardsPanel({
         rewardId: reward.id,
         notes: note,
       });
-      onBurst("reward", cost, `-${cost}`);
+      onBurst("reward", cost, `-${cost}`, {
+        disableInteraction: true,
+        kid,
+        startCount: kid.bankedTokens,
+      });
       setNote("");
       onNotice(`${kid.name} redeemed ${reward.title}.`);
     } catch (error) {

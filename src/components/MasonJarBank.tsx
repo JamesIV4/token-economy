@@ -14,12 +14,27 @@ import * as THREE from "three";
 type MasonJarBankProps = {
   accentColor: string;
   kidName: string;
+  presentation?: "inline" | "transaction";
   tokenCount: number;
+  transaction?: JarTransaction;
+};
+
+export type JarTransactionKind = "deposit" | "withdraw";
+
+export type JarTransaction = {
+  id: number;
+  amount: number;
+  disableInteraction?: boolean;
+  kind: JarTransactionKind;
+  onComplete?: () => void;
+  startCount: number;
 };
 
 type CoinActor = {
   body: CANNON.Body;
   mesh: THREE.Mesh;
+  delay: number;
+  role: "settled" | JarTransactionKind;
 };
 
 type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
@@ -32,6 +47,7 @@ const coinImage = `${baseAssetPath}coin.png`;
 const coinRadius = 0.44;
 const coinDepth = 0.16;
 const maxVisibleCoins = 42;
+const maxTransactionCoins = 36;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -71,7 +87,9 @@ const addCylinderStopper = (
 export function MasonJarBank({
   accentColor,
   kidName,
+  presentation = "inline",
   tokenCount,
+  transaction,
 }: MasonJarBankProps) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const actorsRef = useRef<CoinActor[]>([]);
@@ -89,9 +107,18 @@ export function MasonJarBank({
   const settleTimerRef = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isHolding, setIsHolding] = useState(false);
+  const hasTransaction = Boolean(transaction);
+  const interactionDisabled = Boolean(transaction?.disableInteraction);
+  const transactionId = transaction?.id;
+  const transactionKind = transaction?.kind;
+  const baseTokenCount = transaction?.startCount ?? tokenCount;
   const visibleCoins = useMemo(
-    () => clamp(Math.round(tokenCount), 0, maxVisibleCoins),
-    [tokenCount],
+    () => clamp(Math.round(baseTokenCount), 0, maxVisibleCoins),
+    [baseTokenCount],
+  );
+  const transactionCoins = useMemo(
+    () => clamp(Math.round(transaction?.amount ?? 0), 0, maxTransactionCoins),
+    [transaction?.amount],
   );
 
   const kickCoins = useCallback((x: number, y: number, z: number) => {
@@ -170,13 +197,25 @@ export function MasonJarBank({
   );
 
   useEffect(() => {
+    if (!transaction?.onComplete) return;
+
+    const duration = transaction.kind === "deposit" ? 3800 : 3200;
+    const timer = window.setTimeout(transaction.onComplete, duration);
+    return () => window.clearTimeout(timer);
+  }, [transaction?.id, transaction?.kind, transaction?.onComplete]);
+
+  useEffect(() => {
     const element = sceneRef.current;
     if (!element) return;
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
-    camera.position.set(0, 0.1, 10.6);
-    camera.lookAt(0, -0.2, 0);
+    camera.position.set(
+      0,
+      hasTransaction ? 0.9 : 0.1,
+      hasTransaction ? 11.2 : 10.6,
+    );
+    camera.lookAt(0, hasTransaction ? 0.55 : -0.2, 0);
 
     const renderer = new THREE.WebGLRenderer({
       alpha: true,
@@ -257,7 +296,10 @@ export function MasonJarBank({
 
     const jarInnerWidth = 1.58;
     const jarFloor = -2.36;
-    const jarCeiling = 1.92;
+    const jarVisibleCeiling = 1.92;
+    const jarCeiling = hasTransaction
+      ? jarVisibleCeiling + 4.45
+      : jarVisibleCeiling;
     const jarWallThickness = 0.16;
     const jarWallSegments = 28;
     const jarHeight = jarCeiling - jarFloor;
@@ -308,10 +350,17 @@ export function MasonJarBank({
     const perRow = 3;
     const rowGap = coinRadius * 0.5;
     const scatterX = coinRadius * 1.34;
+    const transactionStartTime = performance.now() / 1000;
+    const withdrawalTargets =
+      transactionKind === "withdraw"
+        ? Math.min(transactionCoins, visibleCoins)
+        : 0;
 
-    for (let index = 0; index < visibleCoins; index += 1) {
-      const row = Math.floor(index / perRow);
-      const column = index % perRow;
+    const addCoin = (
+      role: CoinActor["role"],
+      position: CANNON.Vec3,
+      delay = 0,
+    ) => {
       const mesh = new THREE.Mesh(geometry, coinMaterials);
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -321,11 +370,7 @@ export function MasonJarBank({
         linearDamping: 0.045,
         mass: 0.82,
         material: coinPhysicsMaterial,
-        position: new CANNON.Vec3(
-          (column - (perRow - 1) / 2) * scatterX + randomBetween(-0.06, 0.06),
-          -2.0 + row * rowGap + randomBetween(0, 0.08),
-          randomBetween(-0.72, 0.72),
-        ),
+        position,
       });
       body.addShape(coinShape);
       body.quaternion.setFromEuler(
@@ -335,7 +380,7 @@ export function MasonJarBank({
       );
       body.velocity.set(
         randomBetween(-1.6, 1.6),
-        randomBetween(1.5, 4.8),
+        role === "deposit" ? randomBetween(-2.4, -0.6) : randomBetween(1.5, 4.8),
         randomBetween(-1, 1),
       );
       body.angularVelocity.set(
@@ -345,7 +390,37 @@ export function MasonJarBank({
       );
       world.addBody(body);
       scene.add(mesh);
-      actors.push({ body, mesh });
+      actors.push({ body, delay, mesh, role });
+    };
+
+    for (let index = 0; index < visibleCoins; index += 1) {
+      const row = Math.floor(index / perRow);
+      const column = index % perRow;
+      addCoin(
+        index < withdrawalTargets ? "withdraw" : "settled",
+        new CANNON.Vec3(
+          (column - (perRow - 1) / 2) * scatterX + randomBetween(-0.06, 0.06),
+          -2.0 + row * rowGap + randomBetween(0, 0.08),
+          randomBetween(-0.72, 0.72),
+        ),
+        0.55 + index * 0.04,
+      );
+    }
+
+    if (transactionKind === "deposit") {
+      for (let index = 0; index < transactionCoins; index += 1) {
+        const ring = Math.sqrt(Math.random()) * (jarInnerWidth * 0.72);
+        const theta = randomBetween(0, Math.PI * 2);
+        addCoin(
+          "deposit",
+          new CANNON.Vec3(
+            Math.cos(theta) * ring,
+            jarVisibleCeiling + 3.55 + index * 0.12 + randomBetween(0, 0.4),
+            Math.sin(theta) * ring,
+          ),
+          index * 0.035,
+        );
+      }
     }
 
     actorsRef.current = actors;
@@ -376,6 +451,27 @@ export function MasonJarBank({
       const gravityZ = clamp(shake.z + motion.z, -30, 30);
 
       world.gravity.set(gravityX, gravityY, gravityZ);
+      const actionElapsed = hasTransaction ? time - transactionStartTime : 0;
+
+      if (transactionKind === "withdraw") {
+        actors.forEach((actor, index) => {
+          if (actor.role !== "withdraw" || actionElapsed < actor.delay) return;
+
+          const pullAge = actionElapsed - actor.delay;
+          const { body } = actor;
+          const beamX = Math.sin(index * 2.31) * 0.12;
+          const beamZ = Math.cos(index * 1.77) * 0.12;
+          body.wakeUp();
+          body.collisionResponse = pullAge < 0.55;
+          body.velocity.x += (beamX - body.position.x) * 0.34;
+          body.velocity.z += (beamZ - body.position.z) * 0.34;
+          body.velocity.y = Math.max(body.velocity.y, 7.4 + pullAge * 2.4);
+          body.angularVelocity.x += 0.48 + index * 0.02;
+          body.angularVelocity.y += 0.82;
+          body.angularVelocity.z += 0.64;
+        });
+      }
+
       world.step(1 / 60, delta, 5);
 
       shake.x *= 0.9;
@@ -385,7 +481,7 @@ export function MasonJarBank({
       motion.y *= 0.992;
       motion.z *= 0.992;
 
-      actors.forEach(({ body, mesh }) => {
+      actors.forEach(({ body, mesh, role }) => {
         const velocity = body.velocity;
         const speedSq =
           velocity.x * velocity.x +
@@ -402,6 +498,9 @@ export function MasonJarBank({
           body.quaternion.z,
           body.quaternion.w,
         );
+        if (role === "withdraw" && body.position.y > jarVisibleCeiling + 3.7) {
+          mesh.visible = false;
+        }
       });
 
       rimLight.intensity = 2.2 + Math.min(1.4, Math.abs(gravityX) / 18);
@@ -427,7 +526,15 @@ export function MasonJarBank({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [accentColor, visibleCoins]);
+  }, [
+    accentColor,
+    presentation,
+    hasTransaction,
+    transactionCoins,
+    transactionId,
+    transactionKind,
+    visibleCoins,
+  ]);
 
   useEffect(
     () => () => {
@@ -513,7 +620,14 @@ export function MasonJarBank({
 
   return (
     <div
-      className={`jar-bank ${isHolding ? "is-holding" : ""}`}
+      className={[
+        "jar-bank",
+        `jar-bank-${presentation}`,
+        transactionKind ? `is-${transactionKind}` : "",
+        isHolding ? "is-holding" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       style={
         {
           "--jar-accent": accentColor,
@@ -532,17 +646,19 @@ export function MasonJarBank({
           src={jarImage}
         />
         <span className="jar-bank-glass" aria-hidden="true" />
-        <span
-          aria-label={`${kidName}'s mason jar token bank`}
-          className="jar-bank-hit-area"
-          onKeyDown={handleKeyDown}
-          onPointerCancel={releaseJar}
-          onPointerDown={beginShake}
-          onPointerMove={shakeJar}
-          onPointerUp={releaseJar}
-          role="button"
-          tabIndex={0}
-        />
+        {!interactionDisabled ? (
+          <span
+            aria-label={`${kidName}'s mason jar token bank`}
+            className="jar-bank-hit-area"
+            onKeyDown={handleKeyDown}
+            onPointerCancel={releaseJar}
+            onPointerDown={beginShake}
+            onPointerMove={shakeJar}
+            onPointerUp={releaseJar}
+            role="button"
+            tabIndex={0}
+          />
+        ) : null}
       </div>
     </div>
   );
