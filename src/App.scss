@@ -1248,13 +1248,14 @@ select {
   margin-bottom: 10px;
 
   @media (max-width: 620px) {
-    gap: 6px;
-    grid-template-columns: 1fr;
-    margin-bottom: 8px;
+    gap: 10px;
+    grid-template-columns: minmax(6.5rem, 0.9fr) minmax(8.5rem, 1fr);
+    margin-bottom: 12px;
   }
 }
 
 .bank-number {
+  align-self: center;
   justify-self: center;
   background: linear-gradient(180deg, #fff1a8 0%, #e5a100 46%, #6f3f00 100%);
   background-clip: text;
@@ -1268,6 +1269,13 @@ select {
     0 1px 0 rgba(255, 244, 190, 0.72),
     0 3px 0 rgba(78, 45, 0, 0.34);
   -webkit-background-clip: text;
+  transform: translateY(-0.4rem);
+
+  @media (max-width: 620px) {
+    font-size: clamp(4.45rem, 20vw, 5.65rem);
+    transform: translateY(-0.5rem);
+    line-height: 0.86;
+  }
 }
 
 .bank-stats {
@@ -1276,7 +1284,9 @@ select {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 
   @media (max-width: 620px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-self: center;
+    gap: 7px;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   span {
