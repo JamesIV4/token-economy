@@ -142,16 +142,16 @@ const flowSteps: Array<{
     icon: <CheckCircle2 size={18} />,
   },
   {
-    id: "bank",
-    label: "Token bank",
-    eyebrow: "Step 2",
-    icon: <Wallet size={18} />,
-  },
-  {
     id: "redeem",
     label: "Redeem reward",
-    eyebrow: "Step 3",
+    eyebrow: "Step 2",
     icon: <Gift size={18} />,
+  },
+  {
+    id: "bank",
+    label: "Token bank",
+    eyebrow: "Step 3",
+    icon: <Wallet size={18} />,
   },
   {
     id: "manage",
@@ -759,7 +759,10 @@ function RewardsPanel({
           <p className="eyebrow">Rewards</p>
           <h2>Spend {kid.name}'s banked tokens</h2>
         </div>
-        <Gift size={22} />
+        <span className="summary-pill">
+          <Coins size={16} />
+          {kid.bankedTokens} banked
+        </span>
       </div>
       <label className="note-field">
         <span>Optional redemption note</span>

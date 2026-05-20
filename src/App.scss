@@ -559,6 +559,7 @@ $white_ffffff: #ffffff;
 
 .summary-pill {
   align-items: center;
+  justify-self: start;
   background: var(--mint-soft);
   border-radius: 999px;
   color: $teal_0f766e;
@@ -1454,8 +1455,16 @@ select {
     grid-template-columns: minmax(0, 1fr) 110px minmax(120px, 160px) auto;
   }
 
+  @media (max-width: 620px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   button {
     min-width: 86px;
+
+    @media (max-width: 620px) {
+      width: 100%;
+    }
   }
 }
 
@@ -1515,6 +1524,21 @@ select {
 
 .kid-edit-fields {
   grid-template-columns: minmax(180px, 1fr) 136px 136px 132px auto;
+}
+
+@media (max-width: 620px) {
+  .task-edit-fields,
+  .reward-edit-fields,
+  .kid-edit-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .manager-edit-fields {
+    .icon-actions {
+      justify-content: start;
+      min-width: 0;
+    }
+  }
 }
 
 .edit-field {

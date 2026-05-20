@@ -42,6 +42,7 @@ $mintcream_f6fbf8: #f6fbf8;
 html {
   background: var(--bg);
   min-height: 100%;
+  scrollbar-gutter: stable;
 }
 
 body {
