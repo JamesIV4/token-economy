@@ -1255,10 +1255,19 @@ select {
 }
 
 .bank-number {
-  color: var(--ink);
+  justify-self: center;
+  background: linear-gradient(180deg, #fff1a8 0%, #e5a100 46%, #6f3f00 100%);
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 1px 1px rgba(38, 22, 0, 0.68));
   font-size: clamp(2.85rem, 7vw, 4.4rem);
   font-weight: 950;
   line-height: 0.95;
+  text-align: center;
+  text-shadow:
+    0 1px 0 rgba(255, 244, 190, 0.72),
+    0 3px 0 rgba(78, 45, 0, 0.34);
+  -webkit-background-clip: text;
 }
 
 .bank-stats {
@@ -1287,7 +1296,10 @@ select {
 @media (min-width: 981px) {
   .bank-panel {
     display: grid;
-    grid-template-columns: minmax(72px, auto) minmax(320px, 1fr) minmax(260px, 340px);
+    grid-template-columns: minmax(72px, auto) minmax(320px, 1fr) minmax(
+        260px,
+        340px
+      );
     grid-template-areas:
       "top top top"
       "total stats adjust";
