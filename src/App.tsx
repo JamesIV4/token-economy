@@ -27,6 +27,7 @@ import {
 } from "react";
 import "./App.scss";
 import { CoinBurst, type Burst } from "./components/CoinBurst";
+import { MasonJarBank } from "./components/MasonJarBank";
 import { missingFirebaseConfig } from "./lib/firebase";
 import { kidColors } from "./lib/seedData";
 import { normalizeMultiplier, tokensForTask } from "./lib/tokens";
@@ -683,6 +684,11 @@ function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
         key={`${kid.id}-${kid.bankedTokens}`}
         kid={kid}
         onNotice={onNotice}
+      />
+      <MasonJarBank
+        accentColor={kid.color}
+        kidName={kid.name}
+        tokenCount={kid.bankedTokens}
       />
     </section>
   );

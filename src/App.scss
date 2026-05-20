@@ -1240,6 +1240,181 @@ select {
   }
 }
 
+@media (max-width: 980px) {
+  .bank-panel {
+    display: grid;
+  }
+
+  .bank-top {
+    order: 1;
+  }
+
+  .bank-summary {
+    order: 2;
+  }
+
+  .jar-bank {
+    order: 3;
+  }
+
+  .bank-adjust {
+    order: 4;
+  }
+}
+
+.jar-bank {
+  --jar-accent: var(--kid-color);
+  --jar-tilt: 0deg;
+  --jar-x: 0px;
+  --jar-y: 0px;
+  align-self: start;
+  aspect-ratio: 1;
+  display: grid;
+  justify-self: center;
+  margin-top: 0;
+  margin-bottom: 25px;
+  max-width: 360px;
+  min-height: 230px;
+  min-width: 220px;
+  place-items: center;
+  position: relative;
+  width: min(100%, 310px);
+  z-index: 1;
+}
+
+.jar-bank-grabber {
+  aspect-ratio: 1;
+  display: grid;
+  outline: 0;
+  place-items: center;
+  position: relative;
+  transform: translate3d(var(--jar-x), var(--jar-y), 0) rotate(var(--jar-tilt));
+  transform-origin: 50% 58%;
+  transition:
+    filter 180ms ease,
+    transform 360ms cubic-bezier(0.2, 1.1, 0.22, 1);
+  width: 100%;
+}
+
+.jar-bank.is-holding {
+  .jar-bank-grabber {
+    transition:
+      filter 120ms ease,
+      transform 80ms ease-out;
+  }
+
+  .jar-bank-hit-area {
+    cursor: grabbing;
+  }
+}
+
+.jar-bank-hit-area {
+  clip-path: polygon(
+    20% 0,
+    80% 0,
+    86% 7%,
+    86% 14%,
+    72% 14%,
+    91% 31%,
+    96% 84%,
+    83% 100%,
+    17% 100%,
+    4% 84%,
+    9% 31%,
+    28% 14%,
+    14% 14%,
+    14% 7%
+  );
+  cursor: grab;
+  inset: 12% 24% 7%;
+  outline: 0;
+  position: absolute;
+  touch-action: none;
+  z-index: 6;
+
+  &:focus-visible {
+    filter: drop-shadow(
+      0 0 0.7rem color-mix(in srgb, var(--sky) 46%, transparent)
+    );
+    outline: 3px solid color-mix(in srgb, var(--sky) 55%, transparent);
+    outline-offset: 4px;
+  }
+}
+
+.jar-bank-scene {
+  clip-path: polygon(
+    29% 15%,
+    71% 15%,
+    78% 24%,
+    79% 32%,
+    81% 44%,
+    82% 64%,
+    80% 78%,
+    80% 91%,
+    20% 91%,
+    20% 78%,
+    18% 64%,
+    19% 44%,
+    21% 32%,
+    22% 24%
+  );
+  inset: 13% 11% 9%;
+  overflow: hidden;
+  pointer-events: none;
+  position: absolute;
+  z-index: 1;
+
+  canvas {
+    display: block;
+    height: 100%;
+    width: 100%;
+  }
+}
+
+.jar-bank-image {
+  display: block;
+  filter: drop-shadow(0 18px 20px rgba(23, 32, 42, 0.16))
+    drop-shadow(0 2px 0 color-mix(in srgb, var(--jar-accent) 26%, transparent));
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  position: relative;
+  user-select: none;
+  width: 100%;
+  z-index: 3;
+}
+
+.jar-bank-glass {
+  background:
+    linear-gradient(
+      96deg,
+      transparent 0 35%,
+      rgba(255, 255, 255, 0.3) 46%,
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse at 50% 84%,
+      rgba(255, 255, 255, 0.34),
+      transparent 33%
+    );
+  clip-path: polygon(
+    22% 24%,
+    78% 24%,
+    86% 34%,
+    85% 81%,
+    78% 88%,
+    22% 88%,
+    15% 81%,
+    14% 34%
+  );
+  inset: 0;
+  mix-blend-mode: screen;
+  opacity: 0.62;
+  pointer-events: none;
+  position: absolute;
+  z-index: 4;
+}
+
 .bank-summary {
   align-items: center;
   display: grid;
@@ -1306,13 +1481,12 @@ select {
 @media (min-width: 981px) {
   .bank-panel {
     display: grid;
-    grid-template-columns: minmax(72px, auto) minmax(320px, 1fr) minmax(
-        260px,
-        340px
-      );
+    grid-template-columns:
+      minmax(72px, auto) minmax(250px, 1fr) minmax(230px, 320px)
+      minmax(210px, 300px);
     grid-template-areas:
-      "top top top"
-      "total stats adjust";
+      "top top top jar"
+      "total stats adjust jar";
     align-items: center;
     column-gap: 16px;
     row-gap: 12px;
@@ -1355,6 +1529,36 @@ select {
 
   .bank-adjust label {
     grid-column: 1/-1;
+  }
+
+  .jar-bank {
+    grid-area: jar;
+    margin-top: 0;
+    max-width: none;
+    min-height: 250px;
+    width: min(100%, 300px);
+  }
+}
+
+@media (min-width: 981px) and (max-width: 1180px) {
+  .bank-panel {
+    grid-template-columns: minmax(72px, auto) minmax(220px, 1fr) minmax(
+        210px,
+        280px
+      );
+    grid-template-areas:
+      "top top jar"
+      "total stats jar"
+      "adjust adjust jar";
+  }
+
+  .bank-adjust {
+    align-self: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .jar-bank {
+    width: min(100%, 270px);
   }
 }
 
