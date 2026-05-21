@@ -430,7 +430,6 @@ function KidSelector({
     <section className="kid-selector" aria-label="Choose kid">
       <div className="kid-selector-head">
         <h2>Choose kid</h2>
-        <span className="kid-count">{kids.length} active</span>
       </div>
       <div
         className={`kid-card-frame ${scrollShadowClass(shadows.left, shadows.right)}`}

@@ -622,7 +622,7 @@ $white_ffffff: #ffffff;
 
 @media (min-width: 621px) {
   .kid-selector {
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-columns: auto auto minmax(0, 1fr);
   }
 
   .kid-selector-head {
@@ -635,14 +635,13 @@ $white_ffffff: #ffffff;
   }
 
   .kid-card-frame {
-    grid-column: 2;
+    grid-column: 3;
     grid-row: 1;
   }
 
   .kid-count {
-    grid-column: 3;
+    grid-column: 2;
     grid-row: 1;
-    justify-self: end;
   }
 }
 
@@ -1482,18 +1481,32 @@ select {
   .bank-panel {
     display: grid;
     grid-template-columns:
-      minmax(72px, auto) minmax(250px, 1fr) minmax(230px, 320px)
-      minmax(210px, 300px);
+      minmax(0, 1fr) minmax(84px, 108px) minmax(170px, 220px)
+      minmax(320px, 430px) minmax(0, 1fr);
     grid-template-areas:
-      "top top top jar"
-      "total stats adjust jar";
+      "top top top top top"
+      ". total jar stats ."
+      ". total jar adjust .";
     align-items: center;
     column-gap: 16px;
-    row-gap: 12px;
+    justify-content: center;
+    row-gap: 10px;
+  }
+
+  .bank-panel::after {
+    align-self: stretch;
+    background: var(--line);
+    content: "";
+    grid-column: 4;
+    grid-row: 2 / 4;
+    justify-self: start;
+    width: 1px;
   }
 
   .bank-top {
     grid-area: top;
+    align-items: center;
+    justify-content: space-between;
     margin-bottom: 0;
   }
 
@@ -1503,28 +1516,30 @@ select {
 
   .bank-number {
     grid-area: total;
+    justify-self: end;
   }
 
   .bank-stats {
-    align-self: stretch;
-    border-left: 1px solid var(--line);
-    border-right: 1px solid var(--line);
+    align-self: center;
+    align-items: center;
+    gap: 8px;
     grid-area: stats;
-    padding: 0 16px;
+    padding: 0 0 0 16px;
 
     span {
       font-size: 0.92rem;
       line-height: 1.15;
-      min-height: 70px;
+      min-height: 58px;
       padding: 10px 12px;
     }
   }
 
   .bank-adjust {
-    align-content: center;
-    align-self: stretch;
+    align-content: start;
+    align-self: start;
     grid-area: adjust;
     grid-template-columns: minmax(0, 1fr) auto;
+    padding-left: 16px;
   }
 
   .bank-adjust label {
@@ -1533,23 +1548,23 @@ select {
 
   .jar-bank {
     grid-area: jar;
+    justify-self: start;
     margin-top: 0;
     max-width: none;
-    min-height: 250px;
-    width: min(100%, 300px);
+    min-height: 190px;
+    width: min(100%, 220px);
   }
 }
 
 @media (min-width: 981px) and (max-width: 1180px) {
   .bank-panel {
-    grid-template-columns: minmax(72px, auto) minmax(220px, 1fr) minmax(
-        210px,
-        280px
-      );
+    grid-template-columns:
+      minmax(0, 1fr) minmax(78px, 98px) minmax(150px, 190px)
+      minmax(300px, 380px) minmax(0, 1fr);
     grid-template-areas:
-      "top top jar"
-      "total stats jar"
-      "adjust adjust jar";
+      "top top top top top"
+      ". total jar stats ."
+      ". total jar adjust .";
   }
 
   .bank-adjust {
@@ -1558,7 +1573,8 @@ select {
   }
 
   .jar-bank {
-    width: min(100%, 270px);
+    min-height: 170px;
+    width: min(100%, 190px);
   }
 }
 
