@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
 } from "react";
+import { Smartphone } from "lucide-react";
 import * as THREE from "three";
 import {
   coinDepth,
@@ -21,6 +22,7 @@ import {
 type MasonJarBankProps = {
   accentColor: string;
   kidName: string;
+  onMotionNotice?: (message: string) => void;
   tokenCount: number;
 };
 
@@ -32,6 +34,15 @@ type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
   requestPermission?: () => Promise<PermissionState>;
 };
 
+type MotionAccessState =
+  | "blocked"
+  | "denied"
+  | "enabled"
+  | "needs-permission"
+  | "ready"
+  | "requesting"
+  | "unsupported";
+
 const baseAssetPath = import.meta.env.BASE_URL;
 const jarImage = `${baseAssetPath}mason-jar.png`;
 const coinImage = `${baseAssetPath}coin.png`;
@@ -41,6 +52,15 @@ const clamp = (value: number, min: number, max: number) =>
 
 const randomBetween = (min: number, max: number) =>
   min + Math.random() * (max - min);
+
+const getInitialMotionAccess = (): MotionAccessState => {
+  if (!("DeviceMotionEvent" in window)) return "unsupported";
+  if (!window.isSecureContext) return "blocked";
+
+  const motionEvent =
+    window.DeviceMotionEvent as DeviceMotionPermissionEvent;
+  return motionEvent.requestPermission ? "needs-permission" : "ready";
+};
 
 const getRuntimeProfile = (): RuntimeProfile => {
   const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
@@ -70,6 +90,7 @@ const getRuntimeProfile = (): RuntimeProfile => {
 export function MasonJarBank({
   accentColor,
   kidName,
+  onMotionNotice,
   tokenCount,
 }: MasonJarBankProps) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
@@ -77,6 +98,8 @@ export function MasonJarBank({
   const shakeRef = useRef({ x: 0, y: 0, z: 0 });
   const motionRef = useRef({ x: 0, y: 0, z: 0 });
   const lastMotionRef = useRef({ x: 0, y: 0, z: 0 });
+  const motionProbeTimerRef = useRef<number | null>(null);
+  const motionSampleReceivedRef = useRef(false);
   const kickCoinsRef = useRef<(x: number, y: number, z: number) => void>(
     () => undefined,
   );
@@ -88,6 +111,9 @@ export function MasonJarBank({
   const settleTimerRef = useRef<number | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isHolding, setIsHolding] = useState(false);
+  const [motionAccess, setMotionAccess] = useState<MotionAccessState>(
+    getInitialMotionAccess,
+  );
   const visibleCoins = useMemo(
     () => clamp(Math.round(tokenCount), 0, maxVisibleCoins),
     [tokenCount],
@@ -103,15 +129,20 @@ export function MasonJarBank({
   }, [kickCoins]);
 
   const handleDeviceMotion = useCallback((event: DeviceMotionEvent) => {
-    const acceleration =
-      event.accelerationIncludingGravity ?? event.acceleration;
+    const gravityAcceleration = event.accelerationIncludingGravity;
+    const linearAcceleration = event.acceleration;
+    const acceleration = gravityAcceleration ?? linearAcceleration;
     if (!acceleration) return;
 
     const ax = acceleration.x ?? 0;
     const ay = acceleration.y ?? 0;
     const az = acceleration.z ?? 0;
+    const kickX = linearAcceleration?.x ?? ax;
+    const kickY = linearAcceleration?.y ?? ay;
+    const kickZ = linearAcceleration?.z ?? az;
     const last = lastMotionRef.current;
     const jerk = Math.hypot(ax - last.x, ay - last.y, az - last.z);
+    motionSampleReceivedRef.current = true;
     lastMotionRef.current = { x: ax, y: ay, z: az };
     motionRef.current = {
       x: clamp(-ax * 2.25, -24, 24),
@@ -121,42 +152,133 @@ export function MasonJarBank({
 
     if (jerk > 5.5) {
       kickCoinsRef.current(
-        clamp(-ax * 0.23, -4, 4),
-        clamp(ay * 0.22, -4, 4),
-        clamp(-az * 0.2, -3, 3),
+        clamp(-kickX * 0.38, -4.8, 4.8),
+        clamp(kickY * 0.34, -4.8, 4.8),
+        clamp(-kickZ * 0.3, -3.8, 3.8),
       );
     }
   }, []);
 
-  const enableDeviceMotion = useCallback(async () => {
-    if (detachMotionRef.current || !("DeviceMotionEvent" in window)) return;
+  const clearMotionProbe = useCallback(() => {
+    if (motionProbeTimerRef.current) {
+      window.clearTimeout(motionProbeTimerRef.current);
+      motionProbeTimerRef.current = null;
+    }
+  }, []);
 
-    const motionEvent =
-      window.DeviceMotionEvent as DeviceMotionPermissionEvent;
-
-    if (motionEvent.requestPermission) {
-      try {
-        const permission = await motionEvent.requestPermission();
-        if (permission !== "granted") {
-          return;
-        }
-      } catch {
-        return;
+  const attachDeviceMotion = useCallback(
+    (notify: boolean) => {
+      if (detachMotionRef.current) {
+        return true;
       }
+
+      motionSampleReceivedRef.current = false;
+      window.addEventListener("devicemotion", handleDeviceMotion, {
+        passive: true,
+      });
+      detachMotionRef.current = () => {
+        window.removeEventListener("devicemotion", handleDeviceMotion);
+        detachMotionRef.current = null;
+      };
+      setMotionAccess("enabled");
+
+      if (notify) {
+        clearMotionProbe();
+        motionProbeTimerRef.current = window.setTimeout(() => {
+          motionProbeTimerRef.current = null;
+          if (!motionSampleReceivedRef.current) {
+            onMotionNotice?.(
+              "Motion is enabled, but no accelerometer data is arriving.",
+            );
+          }
+        }, 1400);
+      }
+
+      return true;
+    },
+    [clearMotionProbe, handleDeviceMotion, onMotionNotice],
+  );
+
+  const enableDeviceMotion = useCallback(
+    async (notify = true) => {
+      if (detachMotionRef.current) {
+        return true;
+      }
+
+      if (!("DeviceMotionEvent" in window)) {
+        setMotionAccess("unsupported");
+        if (notify) {
+          onMotionNotice?.("Motion controls are not available in this browser.");
+        }
+        return false;
+      }
+
+      if (!window.isSecureContext) {
+        setMotionAccess("blocked");
+        if (notify) {
+          onMotionNotice?.(
+            "Motion controls need HTTPS or localhost to read phone sensors.",
+          );
+        }
+        return false;
+      }
+
+      const motionEvent =
+        window.DeviceMotionEvent as DeviceMotionPermissionEvent;
+
+      if (motionEvent.requestPermission) {
+        try {
+          setMotionAccess("requesting");
+          const permission = await motionEvent.requestPermission();
+          if (permission !== "granted") {
+            setMotionAccess("denied");
+            if (notify) {
+              onMotionNotice?.(
+                "Motion access was denied. Enable Motion & Orientation Access for this site, then try again.",
+              );
+            }
+            return false;
+          }
+        } catch {
+          setMotionAccess("needs-permission");
+          if (notify) {
+            onMotionNotice?.("Tap Enable motion to allow phone shake controls.");
+          }
+          return false;
+        }
+      }
+
+      attachDeviceMotion(notify);
+      return true;
+    },
+    [attachDeviceMotion, onMotionNotice],
+  );
+
+  useEffect(() => {
+    if (motionAccess !== "ready" || detachMotionRef.current) {
+      return;
     }
 
-    window.addEventListener("devicemotion", handleDeviceMotion);
+    motionSampleReceivedRef.current = false;
+    window.addEventListener("devicemotion", handleDeviceMotion, {
+      passive: true,
+    });
     detachMotionRef.current = () => {
       window.removeEventListener("devicemotion", handleDeviceMotion);
       detachMotionRef.current = null;
     };
-  }, [handleDeviceMotion]);
+
+    return () => {
+      detachMotionRef.current?.();
+    };
+  }, [handleDeviceMotion, motionAccess]);
 
   useEffect(
     () => () => {
+      clearMotionProbe();
       detachMotionRef.current?.();
     },
-    [],
+    [clearMotionProbe],
   );
 
   useEffect(() => {
@@ -465,6 +587,23 @@ export function MasonJarBank({
     window.setTimeout(() => setIsHolding(false), 180);
   }, []);
 
+  const requestMotionFromButton = useCallback(() => {
+    void enableDeviceMotion();
+  }, [enableDeviceMotion]);
+
+  const showMotionButton =
+    motionAccess !== "enabled" &&
+    motionAccess !== "ready" &&
+    motionAccess !== "unsupported";
+  const motionButtonLabel =
+    motionAccess === "blocked" ? "Motion needs HTTPS" : "Enable motion";
+  const motionButtonText =
+    motionAccess === "requesting"
+      ? "Enabling"
+      : motionAccess === "blocked"
+        ? "HTTPS needed"
+        : "Enable motion";
+
   return (
     <div
       className={`jar-bank ${isHolding ? "is-holding" : ""}`}
@@ -478,6 +617,19 @@ export function MasonJarBank({
       }
     >
       <div className="jar-bank-grabber">
+        {showMotionButton ? (
+          <button
+            aria-label={motionButtonLabel}
+            className="jar-bank-motion-button"
+            disabled={motionAccess === "requesting"}
+            onClick={requestMotionFromButton}
+            title={motionButtonLabel}
+            type="button"
+          >
+            <Smartphone size={16} />
+            <span>{motionButtonText}</span>
+          </button>
+        ) : null}
         <div className="jar-bank-scene" ref={sceneRef} />
         <img
           alt=""

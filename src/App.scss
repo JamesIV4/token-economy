@@ -1295,6 +1295,38 @@ select {
   width: 100%;
 }
 
+.jar-bank-motion-button {
+  align-items: center;
+  background: color-mix(in srgb, var(--ink) 86%, var(--jar-accent));
+  border-color: color-mix(in srgb, var(--jar-accent) 32%, transparent);
+  box-shadow: 0 8px 18px rgba(23, 32, 42, 0.16);
+  color: $white_ffffff;
+  display: inline-flex;
+  font-size: 0.78rem;
+  gap: 6px;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 10px;
+  position: absolute;
+  right: 8%;
+  top: 9%;
+  z-index: 7;
+
+  span {
+    white-space: nowrap;
+  }
+
+  @media (max-width: 420px) {
+    font-size: 0;
+    min-width: 36px;
+    padding: 0;
+
+    span {
+      display: none;
+    }
+  }
+}
+
 .jar-bank.is-holding {
   .jar-bank-grabber {
     transition:

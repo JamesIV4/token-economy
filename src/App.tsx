@@ -687,6 +687,7 @@ function KidBank({ kid, onNotice }: { kid: Kid; onNotice: Notify }) {
       <MasonJarBank
         accentColor={kid.color}
         kidName={kid.name}
+        onMotionNotice={onNotice}
         tokenCount={kid.bankedTokens}
       />
     </section>
