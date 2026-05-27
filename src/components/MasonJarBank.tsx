@@ -57,6 +57,11 @@ const baseGravityY = -13.4;
 const planarGravityStrength = Math.abs(baseGravityY);
 const minPlanarGravity = 2.2;
 const planarGravitySmoothing = 0.22;
+const kickShakeThreshold = 5.5;
+const blurEditableShakeThreshold = 6.2;
+const blurEditableAccelerationThreshold = 3.8;
+const editableSelector =
+  "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
 
 const lerp = (from: number, to: number, amount: number) =>
   from + (to - from) * amount;
@@ -71,9 +76,8 @@ const getInitialMotionAccess = (): MotionAccessState => {
 };
 
 const getPlanarGravity = (x: number, y: number) => {
-  // accelerationIncludingGravity is proper acceleration, so invert it to get gravity.
-  const gravityX = -x;
-  const gravityY = -y;
+  const gravityX = x;
+  const gravityY = y;
   const magnitude = Math.hypot(gravityX, gravityY);
 
   if (magnitude < minPlanarGravity) {
@@ -95,6 +99,19 @@ const smoothPlanarGravity = (
   y: lerp(current.y, target.y, planarGravitySmoothing),
   z: 0,
 });
+
+const blurActiveEditable = (scope: HTMLElement | null) => {
+  if (!scope) return;
+  const activeElement = document.activeElement;
+  if (!(activeElement instanceof HTMLElement) || !scope.contains(activeElement)) {
+    return;
+  }
+
+  const editableElement = activeElement.closest(editableSelector);
+  if (editableElement instanceof HTMLElement && scope.contains(editableElement)) {
+    editableElement.blur();
+  }
+};
 
 const getRuntimeProfile = (): RuntimeProfile => {
   const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
@@ -127,6 +144,7 @@ export function MasonJarBank({
   onMotionNotice,
   tokenCount,
 }: MasonJarBankProps) {
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const physicsWorkerRef = useRef<Worker | null>(null);
   const shakeRef = useRef({ x: 0, y: 0, z: 0 });
@@ -184,13 +202,30 @@ export function MasonJarBank({
     const ax = kickAcceleration?.x ?? 0;
     const ay = kickAcceleration?.y ?? 0;
     const az = kickAcceleration?.z ?? 0;
+    const linearAccelerationMagnitude = linearAcceleration
+      ? Math.hypot(
+          linearAcceleration.x ?? 0,
+          linearAcceleration.y ?? 0,
+          linearAcceleration.z ?? 0,
+        )
+      : 0;
     const last = lastMotionRef.current;
     const jerk = hadMotionSample
       ? Math.hypot(ax - last.x, ay - last.y, az - last.z)
       : 0;
     lastMotionRef.current = { x: ax, y: ay, z: az };
 
-    if (jerk > 5.5) {
+    if (
+      linearAcceleration &&
+      jerk > blurEditableShakeThreshold &&
+      linearAccelerationMagnitude > blurEditableAccelerationThreshold
+    ) {
+      blurActiveEditable(
+        rootRef.current?.closest<HTMLElement>(".bank-panel") ?? null,
+      );
+    }
+
+    if (jerk > kickShakeThreshold) {
       kickCoinsRef.current(
         clamp(-ax * 0.38, -4.8, 4.8),
         clamp(ay * 0.34, -4.8, 4.8),
@@ -640,6 +675,7 @@ export function MasonJarBank({
   return (
     <div
       className={`jar-bank ${isHolding ? "is-holding" : ""}`}
+      ref={rootRef}
       style={
         {
           "--jar-accent": accentColor,
