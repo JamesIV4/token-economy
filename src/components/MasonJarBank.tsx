@@ -93,8 +93,8 @@ const alignToScreenPlane = (x: number, y: number) => {
   const sin = Math.sin(angle);
 
   return {
-    x: x * cos + y * sin,
-    y: -x * sin + y * cos,
+    x: x * cos - y * sin,
+    y: x * sin + y * cos,
   };
 };
 
