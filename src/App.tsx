@@ -130,26 +130,6 @@ function useScrollShadows<T extends HTMLElement>(dependencyKey: string) {
   return { ref, shadows };
 }
 
-function usePortraitOrientationLock() {
-  useEffect(() => {
-    const orientation = screen.orientation;
-    if (!orientation?.lock) return;
-
-    const lockPortrait = () => {
-      void orientation.lock("portrait-primary").catch(() => undefined);
-    };
-
-    lockPortrait();
-    window.addEventListener("focus", lockPortrait);
-    document.addEventListener("visibilitychange", lockPortrait);
-
-    return () => {
-      window.removeEventListener("focus", lockPortrait);
-      document.removeEventListener("visibilitychange", lockPortrait);
-    };
-  }, []);
-}
-
 const flowSteps: Array<{
   id: FlowStepId;
   label: string;
@@ -191,8 +171,6 @@ function App() {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [notice, setNotice] = useState("");
   const seeded = useRef(false);
-
-  usePortraitOrientationLock();
 
   useEffect(() => subscribe(), [subscribe]);
 

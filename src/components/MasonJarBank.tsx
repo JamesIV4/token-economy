@@ -34,6 +34,10 @@ type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
   requestPermission?: () => Promise<PermissionState>;
 };
 
+type WindowWithLegacyOrientation = Window & {
+  orientation?: number;
+};
+
 type MotionAccessState =
   | "blocked"
   | "denied"
@@ -73,6 +77,25 @@ const getInitialMotionAccess = (): MotionAccessState => {
   const motionEvent =
     window.DeviceMotionEvent as DeviceMotionPermissionEvent;
   return motionEvent.requestPermission ? "needs-permission" : "ready";
+};
+
+const getScreenRotationAngle = () => {
+  const screenAngle = screen.orientation?.angle;
+  if (typeof screenAngle === "number") return screenAngle;
+
+  const legacyAngle = (window as WindowWithLegacyOrientation).orientation;
+  return typeof legacyAngle === "number" ? legacyAngle : 0;
+};
+
+const alignToScreenPlane = (x: number, y: number) => {
+  const angle = (getScreenRotationAngle() * Math.PI) / 180;
+  const cos = Math.cos(angle);
+  const sin = Math.sin(angle);
+
+  return {
+    x: x * cos + y * sin,
+    y: -x * sin + y * cos,
+  };
 };
 
 const getPlanarGravity = (x: number, y: number) => {
@@ -190,12 +213,13 @@ export function MasonJarBank({
     motionSampleReceivedRef.current = true;
 
     if (gravityAcceleration) {
+      const screenGravity = alignToScreenPlane(
+        gravityAcceleration.x ?? 0,
+        gravityAcceleration.y ?? 0,
+      );
       motionRef.current = smoothPlanarGravity(
         motionRef.current,
-        getPlanarGravity(
-          gravityAcceleration.x ?? 0,
-          gravityAcceleration.y ?? 0,
-        ),
+        getPlanarGravity(screenGravity.x, screenGravity.y),
       );
     }
 
