@@ -53,6 +53,14 @@ const clamp = (value: number, min: number, max: number) =>
 const randomBetween = (min: number, max: number) =>
   min + Math.random() * (max - min);
 
+const baseGravityY = -13.4;
+const planarGravityStrength = Math.abs(baseGravityY);
+const minPlanarGravity = 2.2;
+const planarGravitySmoothing = 0.22;
+
+const lerp = (from: number, to: number, amount: number) =>
+  from + (to - from) * amount;
+
 const getInitialMotionAccess = (): MotionAccessState => {
   if (!("DeviceMotionEvent" in window)) return "unsupported";
   if (!window.isSecureContext) return "blocked";
@@ -61,6 +69,32 @@ const getInitialMotionAccess = (): MotionAccessState => {
     window.DeviceMotionEvent as DeviceMotionPermissionEvent;
   return motionEvent.requestPermission ? "needs-permission" : "ready";
 };
+
+const getPlanarGravity = (x: number, y: number) => {
+  // accelerationIncludingGravity is proper acceleration, so invert it to get gravity.
+  const gravityX = -x;
+  const gravityY = -y;
+  const magnitude = Math.hypot(gravityX, gravityY);
+
+  if (magnitude < minPlanarGravity) {
+    return { x: 0, y: baseGravityY, z: 0 };
+  }
+
+  return {
+    x: (gravityX / magnitude) * planarGravityStrength,
+    y: (gravityY / magnitude) * planarGravityStrength,
+    z: 0,
+  };
+};
+
+const smoothPlanarGravity = (
+  current: { x: number; y: number; z: number },
+  target: { x: number; y: number; z: number },
+) => ({
+  x: lerp(current.x, target.x, planarGravitySmoothing),
+  y: lerp(current.y, target.y, planarGravitySmoothing),
+  z: 0,
+});
 
 const getRuntimeProfile = (): RuntimeProfile => {
   const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
@@ -96,7 +130,7 @@ export function MasonJarBank({
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const physicsWorkerRef = useRef<Worker | null>(null);
   const shakeRef = useRef({ x: 0, y: 0, z: 0 });
-  const motionRef = useRef({ x: 0, y: 0, z: 0 });
+  const motionRef = useRef({ x: 0, y: baseGravityY, z: 0 });
   const lastMotionRef = useRef({ x: 0, y: 0, z: 0 });
   const motionProbeTimerRef = useRef<number | null>(null);
   const motionSampleReceivedRef = useRef(false);
@@ -131,30 +165,36 @@ export function MasonJarBank({
   const handleDeviceMotion = useCallback((event: DeviceMotionEvent) => {
     const gravityAcceleration = event.accelerationIncludingGravity;
     const linearAcceleration = event.acceleration;
-    const acceleration = gravityAcceleration ?? linearAcceleration;
-    if (!acceleration) return;
+    const kickAcceleration = linearAcceleration ?? gravityAcceleration;
+    if (!gravityAcceleration && !kickAcceleration) return;
 
-    const ax = acceleration.x ?? 0;
-    const ay = acceleration.y ?? 0;
-    const az = acceleration.z ?? 0;
-    const kickX = linearAcceleration?.x ?? ax;
-    const kickY = linearAcceleration?.y ?? ay;
-    const kickZ = linearAcceleration?.z ?? az;
-    const last = lastMotionRef.current;
-    const jerk = Math.hypot(ax - last.x, ay - last.y, az - last.z);
+    const hadMotionSample = motionSampleReceivedRef.current;
     motionSampleReceivedRef.current = true;
+
+    if (gravityAcceleration) {
+      motionRef.current = smoothPlanarGravity(
+        motionRef.current,
+        getPlanarGravity(
+          gravityAcceleration.x ?? 0,
+          gravityAcceleration.y ?? 0,
+        ),
+      );
+    }
+
+    const ax = kickAcceleration?.x ?? 0;
+    const ay = kickAcceleration?.y ?? 0;
+    const az = kickAcceleration?.z ?? 0;
+    const last = lastMotionRef.current;
+    const jerk = hadMotionSample
+      ? Math.hypot(ax - last.x, ay - last.y, az - last.z)
+      : 0;
     lastMotionRef.current = { x: ax, y: ay, z: az };
-    motionRef.current = {
-      x: clamp(-ax * 2.25, -24, 24),
-      y: clamp(ay * 1.55, -18, 22),
-      z: clamp(-az * 1.2, -18, 18),
-    };
 
     if (jerk > 5.5) {
       kickCoinsRef.current(
-        clamp(-kickX * 0.38, -4.8, 4.8),
-        clamp(kickY * 0.34, -4.8, 4.8),
-        clamp(-kickZ * 0.3, -3.8, 3.8),
+        clamp(-ax * 0.38, -4.8, 4.8),
+        clamp(ay * 0.34, -4.8, 4.8),
+        clamp(-az * 0.3, -3.8, 3.8),
       );
     }
   }, []);
@@ -427,7 +467,7 @@ export function MasonJarBank({
     let animationFrame = 0;
     let lastRenderTime = 0;
     let previousGravityX = 0;
-    let previousGravityY = -13.4;
+    let previousGravityY = baseGravityY;
     let previousGravityZ = 0;
 
     const animate = (timeMs: number) => {
@@ -435,15 +475,10 @@ export function MasonJarBank({
       const shake = shakeRef.current;
       const motion = motionRef.current;
       const gravityX = clamp(shake.x + motion.x, -38, 38);
-      const gravityY = clamp(-13.4 + shake.y + motion.y, -40, 28);
+      const gravityY = clamp(shake.y + motion.y, -40, 28);
       const gravityZ = clamp(shake.z + motion.z, -30, 30);
       const agitation =
-        Math.abs(shake.x) +
-        Math.abs(shake.y) +
-        Math.abs(shake.z) +
-        Math.abs(motion.x) +
-        Math.abs(motion.y) +
-        Math.abs(motion.z);
+        Math.abs(shake.x) + Math.abs(shake.y) + Math.abs(shake.z);
       const gravityDelta =
         Math.abs(gravityX - previousGravityX) +
         Math.abs(gravityY - previousGravityY) +
@@ -464,9 +499,6 @@ export function MasonJarBank({
       shake.x *= 0.9;
       shake.y *= 0.9;
       shake.z *= 0.9;
-      motion.x *= 0.992;
-      motion.y *= 0.992;
-      motion.z *= 0.992;
 
       const hasNewPhysicsFrame = applyLatestFrame();
 
@@ -476,6 +508,7 @@ export function MasonJarBank({
         (frameReceivedRef.current &&
           (physicsMovingRef.current ||
             agitation > 0.035 ||
+            gravityDelta > 0.01 ||
             time - lastRenderTime > 0.25))
       ) {
         renderer.render(scene, camera);
