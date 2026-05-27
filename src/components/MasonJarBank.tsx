@@ -1,4 +1,3 @@
-import * as CANNON from "cannon-es";
 import {
   useCallback,
   useEffect,
@@ -10,6 +9,14 @@ import {
   type PointerEvent,
 } from "react";
 import * as THREE from "three";
+import {
+  coinDepth,
+  coinRadius,
+  maxVisibleCoins,
+  type CoinPhysicsCommand,
+  type CoinPhysicsFrame,
+  type RuntimeProfile,
+} from "../lib/coinPhysics";
 
 type MasonJarBankProps = {
   accentColor: string;
@@ -17,9 +24,8 @@ type MasonJarBankProps = {
   tokenCount: number;
 };
 
-type CoinActor = {
-  body: CANNON.Body;
-  mesh: THREE.Mesh;
+type NavigatorWithMemory = Navigator & {
+  deviceMemory?: number;
 };
 
 type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
@@ -29,9 +35,6 @@ type DeviceMotionPermissionEvent = typeof DeviceMotionEvent & {
 const baseAssetPath = import.meta.env.BASE_URL;
 const jarImage = `${baseAssetPath}mason-jar.png`;
 const coinImage = `${baseAssetPath}coin.png`;
-const coinRadius = 0.44;
-const coinDepth = 0.16;
-const maxVisibleCoins = 42;
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -39,33 +42,29 @@ const clamp = (value: number, min: number, max: number) =>
 const randomBetween = (min: number, max: number) =>
   min + Math.random() * (max - min);
 
-const addBoxWall = (
-  world: CANNON.World,
-  material: CANNON.Material,
-  size: CANNON.Vec3,
-  position: CANNON.Vec3,
-  rotationY = 0,
-) => {
-  const body = new CANNON.Body({ mass: 0, material });
-  body.addShape(new CANNON.Box(size));
-  body.position.copy(position);
-  body.quaternion.setFromEuler(0, rotationY, 0);
-  world.addBody(body);
-  return body;
-};
+const getRuntimeProfile = (): RuntimeProfile => {
+  const coarsePointer = window.matchMedia("(pointer: coarse)").matches;
+  const deviceMemory = (navigator as NavigatorWithMemory).deviceMemory ?? 8;
+  const lowerRenderCost = coarsePointer || deviceMemory <= 4;
 
-const addCylinderStopper = (
-  world: CANNON.World,
-  material: CANNON.Material,
-  radius: number,
-  depth: number,
-  y: number,
-) => {
-  const body = new CANNON.Body({ mass: 0, material });
-  body.addShape(new CANNON.Cylinder(radius, radius, depth, 32));
-  body.position.set(0, y, 0);
-  world.addBody(body);
-  return body;
+  return {
+    fixedTimeStep: 1 / 60,
+    gridCells: {
+      x: 5,
+      y: 8,
+      z: 5,
+    },
+    maxSubSteps: 4,
+    physicsCoinSegments: 16,
+    pixelRatioLimit: lowerRenderCost ? 1.35 : 1.75,
+    renderCoinSegments: lowerRenderCost ? 28 : 36,
+    sleepSpeedLimit: 0.34,
+    sleepTimeLimit: 0.48,
+    solverIterations: 12,
+    solverTolerance: 0.003,
+    stopperSegments: 24,
+    wallSegments: 24,
+  };
 };
 
 export function MasonJarBank({
@@ -74,7 +73,7 @@ export function MasonJarBank({
   tokenCount,
 }: MasonJarBankProps) {
   const sceneRef = useRef<HTMLDivElement | null>(null);
-  const actorsRef = useRef<CoinActor[]>([]);
+  const physicsWorkerRef = useRef<Worker | null>(null);
   const shakeRef = useRef({ x: 0, y: 0, z: 0 });
   const motionRef = useRef({ x: 0, y: 0, z: 0 });
   const lastMotionRef = useRef({ x: 0, y: 0, z: 0 });
@@ -95,17 +94,8 @@ export function MasonJarBank({
   );
 
   const kickCoins = useCallback((x: number, y: number, z: number) => {
-    const actors = actorsRef.current;
-    actors.forEach(({ body }, index) => {
-      const phase = index * 0.81;
-      body.wakeUp();
-      body.velocity.x += x * randomBetween(0.45, 1.15) + Math.sin(phase) * 0.4;
-      body.velocity.y += y * randomBetween(0.45, 1.15) + Math.cos(phase) * 0.5;
-      body.velocity.z += z * randomBetween(0.45, 1.15) + Math.sin(phase * 0.7);
-      body.angularVelocity.x += randomBetween(-9, 9) + z * 1.8;
-      body.angularVelocity.y += randomBetween(-9, 9) + x * 1.7;
-      body.angularVelocity.z += randomBetween(-12, 12) + y * 1.4;
-    });
+    const message: CoinPhysicsCommand = { type: "kick", x, y, z };
+    physicsWorkerRef.current?.postMessage(message);
   }, []);
 
   useEffect(() => {
@@ -173,6 +163,7 @@ export function MasonJarBank({
     const element = sceneRef.current;
     if (!element) return;
 
+    const runtimeProfile = getRuntimeProfile();
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
     camera.position.set(0, 0.1, 10.6);
@@ -185,7 +176,9 @@ export function MasonJarBank({
     });
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(
+      Math.min(window.devicePixelRatio, runtimeProfile.pixelRatioLimit),
+    );
     element.appendChild(renderer.domElement);
 
     const ambientLight = new THREE.HemisphereLight(0xffffff, 0xb59652, 2.2);
@@ -198,13 +191,16 @@ export function MasonJarBank({
     const textureLoader = new THREE.TextureLoader();
     const coinTexture = textureLoader.load(coinImage);
     coinTexture.colorSpace = THREE.SRGBColorSpace;
-    coinTexture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    coinTexture.anisotropy = Math.min(
+      4,
+      renderer.capabilities.getMaxAnisotropy(),
+    );
 
     const geometry = new THREE.CylinderGeometry(
       coinRadius,
       coinRadius,
       coinDepth,
-      48,
+      runtimeProfile.renderCoinSegments,
       1,
       false,
     );
@@ -224,131 +220,75 @@ export function MasonJarBank({
     const backMaterial = faceMaterial.clone();
     const coinMaterials = [sideMaterial, faceMaterial, backMaterial];
 
-    const world = new CANNON.World({
-      gravity: new CANNON.Vec3(0, -13.4, 0),
-    });
-    const solver = new CANNON.GSSolver();
-    solver.iterations = 22;
-    solver.tolerance = 0.0008;
-    world.solver = solver;
-    world.allowSleep = false;
-    world.broadphase = new CANNON.SAPBroadphase(world);
-
-    const coinPhysicsMaterial = new CANNON.Material("coin");
-    const glassPhysicsMaterial = new CANNON.Material("glass");
-    world.defaultContactMaterial.friction = 0.18;
-    world.defaultContactMaterial.restitution = 0.78;
-    world.addContactMaterial(
-      new CANNON.ContactMaterial(coinPhysicsMaterial, coinPhysicsMaterial, {
-        contactEquationStiffness: 1e8,
-        friction: 0.28,
-        frictionEquationStiffness: 1e7,
-        restitution: 0.76,
-      }),
+    const coinMesh = new THREE.InstancedMesh(
+      geometry,
+      coinMaterials,
+      visibleCoins,
     );
-    world.addContactMaterial(
-      new CANNON.ContactMaterial(coinPhysicsMaterial, glassPhysicsMaterial, {
-        contactEquationStiffness: 1e8,
-        friction: 0.08,
-        frictionEquationStiffness: 1e7,
-        restitution: 0.92,
-      }),
+    coinMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    coinMesh.frustumCulled = false;
+    scene.add(coinMesh);
+
+    const matrix = new THREE.Matrix4();
+    const matrixPosition = new THREE.Vector3();
+    const matrixQuaternion = new THREE.Quaternion();
+    const matrixScale = new THREE.Vector3(1, 1, 1);
+    const latestFrameRef = {
+      current: null as Float32Array | null,
+    };
+    const renderedFrameRef = {
+      current: null as Float32Array | null,
+    };
+    const physicsMovingRef = {
+      current: true,
+    };
+    const frameReceivedRef = {
+      current: false,
+    };
+    const applyLatestFrame = () => {
+      const transforms = latestFrameRef.current;
+      if (!transforms || transforms === renderedFrameRef.current) {
+        return false;
+      }
+
+      for (let index = 0; index < visibleCoins; index += 1) {
+        const offset = index * 7;
+        matrixPosition.set(
+          transforms[offset],
+          transforms[offset + 1],
+          transforms[offset + 2],
+        );
+        matrixQuaternion.set(
+          transforms[offset + 3],
+          transforms[offset + 4],
+          transforms[offset + 5],
+          transforms[offset + 6],
+        );
+        matrix.compose(matrixPosition, matrixQuaternion, matrixScale);
+        coinMesh.setMatrixAt(index, matrix);
+      }
+
+      coinMesh.instanceMatrix.needsUpdate = true;
+      renderedFrameRef.current = transforms;
+      return true;
+    };
+
+    const physicsWorker = new Worker(
+      new URL("../workers/coinPhysicsWorker.ts", import.meta.url),
+      { type: "module" },
     );
-
-    const jarInnerWidth = 1.58;
-    const jarFloor = -2.36;
-    const jarCeiling = 1.92;
-    const jarWallThickness = 0.16;
-    const jarWallSegments = 28;
-    const jarHeight = jarCeiling - jarFloor;
-    const jarCenterY = (jarCeiling + jarFloor) / 2;
-    const wallArcHalf =
-      ((Math.PI * 2 * (jarInnerWidth + jarWallThickness)) / jarWallSegments) *
-      0.56;
-
-    addCylinderStopper(
-      world,
-      glassPhysicsMaterial,
-      jarInnerWidth,
-      0.24,
-      jarFloor,
-    );
-    addCylinderStopper(
-      world,
-      glassPhysicsMaterial,
-      jarInnerWidth,
-      0.2,
-      jarCeiling,
-    );
-
-    for (let segment = 0; segment < jarWallSegments; segment += 1) {
-      const theta = (segment / jarWallSegments) * Math.PI * 2;
-      const wallRadius = jarInnerWidth + jarWallThickness;
-
-      addBoxWall(
-        world,
-        glassPhysicsMaterial,
-        new CANNON.Vec3(wallArcHalf, jarHeight / 2, jarWallThickness),
-        new CANNON.Vec3(
-          Math.cos(theta) * wallRadius,
-          jarCenterY,
-          Math.sin(theta) * wallRadius,
-        ),
-        Math.PI / 2 - theta,
-      );
-    }
-
-    const coinShape = new CANNON.Cylinder(
-      coinRadius,
-      coinRadius,
-      coinDepth,
-      24,
-    );
-    const actors: CoinActor[] = [];
-    const perRow = 3;
-    const rowGap = coinRadius * 0.5;
-    const scatterX = coinRadius * 1.34;
-
-    for (let index = 0; index < visibleCoins; index += 1) {
-      const row = Math.floor(index / perRow);
-      const column = index % perRow;
-      const mesh = new THREE.Mesh(geometry, coinMaterials);
-      mesh.castShadow = true;
-      mesh.receiveShadow = true;
-
-      const body = new CANNON.Body({
-        angularDamping: 0.14,
-        linearDamping: 0.045,
-        mass: 0.82,
-        material: coinPhysicsMaterial,
-        position: new CANNON.Vec3(
-          (column - (perRow - 1) / 2) * scatterX + randomBetween(-0.06, 0.06),
-          -2.0 + row * rowGap + randomBetween(0, 0.08),
-          randomBetween(-0.72, 0.72),
-        ),
-      });
-      body.addShape(coinShape);
-      body.quaternion.setFromEuler(
-        Math.PI / 2 + randomBetween(-0.35, 0.35),
-        randomBetween(-0.42, 0.42),
-        randomBetween(-Math.PI, Math.PI),
-      );
-      body.velocity.set(
-        randomBetween(-1.6, 1.6),
-        randomBetween(1.5, 4.8),
-        randomBetween(-1, 1),
-      );
-      body.angularVelocity.set(
-        randomBetween(-7, 7),
-        randomBetween(-7, 7),
-        randomBetween(-12, 12),
-      );
-      world.addBody(body);
-      scene.add(mesh);
-      actors.push({ body, mesh });
-    }
-
-    actorsRef.current = actors;
+    physicsWorkerRef.current = physicsWorker;
+    physicsWorker.onmessage = (event: MessageEvent<CoinPhysicsFrame>) => {
+      if (event.data.type !== "frame") return;
+      latestFrameRef.current = event.data.transforms;
+      physicsMovingRef.current = event.data.moving;
+      frameReceivedRef.current = true;
+    };
+    physicsWorker.postMessage({
+      profile: runtimeProfile,
+      type: "init",
+      visibleCoins,
+    } satisfies CoinPhysicsCommand);
 
     const resize = () => {
       const width = Math.max(220, element.clientWidth);
@@ -363,20 +303,41 @@ export function MasonJarBank({
     resize();
 
     let animationFrame = 0;
-    let previousTime = performance.now() / 1000;
+    let lastRenderTime = 0;
+    let previousGravityX = 0;
+    let previousGravityY = -13.4;
+    let previousGravityZ = 0;
 
     const animate = (timeMs: number) => {
       const time = timeMs / 1000;
-      const delta = Math.min(0.033, time - previousTime);
-      previousTime = time;
       const shake = shakeRef.current;
       const motion = motionRef.current;
       const gravityX = clamp(shake.x + motion.x, -38, 38);
       const gravityY = clamp(-13.4 + shake.y + motion.y, -40, 28);
       const gravityZ = clamp(shake.z + motion.z, -30, 30);
+      const agitation =
+        Math.abs(shake.x) +
+        Math.abs(shake.y) +
+        Math.abs(shake.z) +
+        Math.abs(motion.x) +
+        Math.abs(motion.y) +
+        Math.abs(motion.z);
+      const gravityDelta =
+        Math.abs(gravityX - previousGravityX) +
+        Math.abs(gravityY - previousGravityY) +
+        Math.abs(gravityZ - previousGravityZ);
 
-      world.gravity.set(gravityX, gravityY, gravityZ);
-      world.step(1 / 60, delta, 5);
+      if (gravityDelta > 0.01) {
+        physicsWorker.postMessage({
+          type: "gravity",
+          x: gravityX,
+          y: gravityY,
+          z: gravityZ,
+        } satisfies CoinPhysicsCommand);
+      }
+      previousGravityX = gravityX;
+      previousGravityY = gravityY;
+      previousGravityZ = gravityZ;
 
       shake.x *= 0.9;
       shake.y *= 0.9;
@@ -385,27 +346,19 @@ export function MasonJarBank({
       motion.y *= 0.992;
       motion.z *= 0.992;
 
-      actors.forEach(({ body, mesh }) => {
-        const velocity = body.velocity;
-        const speedSq =
-          velocity.x * velocity.x +
-          velocity.y * velocity.y +
-          velocity.z * velocity.z;
-        if (speedSq > 324) {
-          velocity.scale(18 / Math.sqrt(speedSq), velocity);
-        }
-
-        mesh.position.set(body.position.x, body.position.y, body.position.z);
-        mesh.quaternion.set(
-          body.quaternion.x,
-          body.quaternion.y,
-          body.quaternion.z,
-          body.quaternion.w,
-        );
-      });
+      const hasNewPhysicsFrame = applyLatestFrame();
 
       rimLight.intensity = 2.2 + Math.min(1.4, Math.abs(gravityX) / 18);
-      renderer.render(scene, camera);
+      if (
+        hasNewPhysicsFrame ||
+        (frameReceivedRef.current &&
+          (physicsMovingRef.current ||
+            agitation > 0.035 ||
+            time - lastRenderTime > 0.25))
+      ) {
+        renderer.render(scene, camera);
+        lastRenderTime = time;
+      }
       animationFrame = window.requestAnimationFrame(animate);
     };
 
@@ -414,11 +367,12 @@ export function MasonJarBank({
     return () => {
       window.cancelAnimationFrame(animationFrame);
       resizeObserver.disconnect();
-      actorsRef.current = [];
-      actors.forEach(({ body, mesh }) => {
-        world.removeBody(body);
-        scene.remove(mesh);
-      });
+      physicsWorker.postMessage({ type: "stop" } satisfies CoinPhysicsCommand);
+      physicsWorker.terminate();
+      if (physicsWorkerRef.current === physicsWorker) {
+        physicsWorkerRef.current = null;
+      }
+      scene.remove(coinMesh);
       geometry.dispose();
       sideMaterial.dispose();
       faceMaterial.dispose();
@@ -427,7 +381,7 @@ export function MasonJarBank({
       renderer.dispose();
       renderer.domElement.remove();
     };
-  }, [accentColor, visibleCoins]);
+  }, [visibleCoins]);
 
   useEffect(
     () => () => {
